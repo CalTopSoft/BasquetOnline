@@ -6,8 +6,8 @@ const server = http.createServer();
 const wss = new WebSocket.Server({ server });
 
 const rooms = {
-    room1: { players: [], scores: [0, 0], round: 1, attempts: [0, 0], turn: 0, afk: [0, 0] },
-    room2: { players: [], scores: [0, 0], round: 1, attempts: [0, 0], turn: 0, afk: [0, 0] }
+    room1: { players: [], scores: [0, 0], round: 1, attempts: [0, 0], turn: 0, afk: [0, 0], ball: { x: 300, y: 350, vx: 0, vy: 0, thrown: false } },
+    room2: { players: [], scores: [0, 0], round: 1, attempts: [0, 0], turn: 0, afk: [0, 0], ball: { x: 300, y: 350, vx: 0, vy: 0, thrown: false } }
 };
 let rankings = [];
 
@@ -35,10 +35,12 @@ wss.on('connection', (ws) => {
             if (room.players.length < 2) {
                 room.players.push({ ws, name: data.name });
                 ws.send(JSON.stringify({ type: 'joined', room: data.room, players: room.players.map(p => p.name) }));
-                if (room.players.length === 2) {
-                    room.players.forEach(p => {
-                        p.ws.send(JSON.stringify({ type: 'start', turn: room.turn }));
-                    });
+                if (room.players.length === 1) {
+                    room.turn = 0;
+                    room.players.forEach(p => p.ws.send(JSON.stringify({ type: 'start', turn: room.turn, ballX: room.ball.x, ballY: room.ball.y, ballVX: room.ball.vx, ballVY: room.ball.vy, ballThrown: room.ball.thrown })));
+                } else if (room.players.length === 2) {
+                    room.turn = 0;
+                    room.players.forEach(p => p.ws.send(JSON.stringify({ type: 'start', turn: room.turn, ballX: room.ball.x, ballY: room.ball.y, ballVX: room.ball.vx, ballVY: room.ball.vy, ballThrown: room.ball.thrown })));
                 }
             } else {
                 ws.send(JSON.stringify({ type: 'full' }));
@@ -48,6 +50,11 @@ wss.on('connection', (ws) => {
         if (data.type === 'shot') {
             const room = rooms[data.room];
             const scored = data.scored;
+            room.ball.x = data.ballX;
+            room.ball.y = data.ballY;
+            room.ball.vx = data.ballVX;
+            room.ball.vy = data.ballVY;
+            room.ball.thrown = data.ballThrown;
             room.attempts[room.turn]++;
             if (scored) {
                 room.scores[room.turn]++;
@@ -57,7 +64,7 @@ wss.on('connection', (ws) => {
             }
 
             room.players.forEach(p => {
-                p.ws.send(JSON.stringify({ type: 'update', scores: room.scores, turn: room.turn, scored }));
+                p.ws.send(JSON.stringify({ type: 'update', scores: room.scores, turn: room.turn, scored, ballX: room.ball.x, ballY: room.ball.y, ballVX: room.ball.vx, ballVY: room.ball.vy, ballThrown: room.ball.thrown, ballHit: data.ballHit }));
             });
 
             if (room.afk[room.turn] >= 2) {
@@ -105,8 +112,13 @@ wss.on('connection', (ws) => {
                 }
             } else {
                 room.turn = room.turn === 0 ? 1 : 0;
+                room.ball.x = 300;
+                room.ball.y = 350;
+                room.ball.vx = 0;
+                room.ball.vy = 0;
+                room.ball.thrown = false;
                 room.players.forEach(p => {
-                    p.ws.send(JSON.stringify({ type: 'updateTurn', turn: room.turn }));
+                    p.ws.send(JSON.stringify({ type: 'updateTurn', turn: room.turn, ballX: room.ball.x, ballY: room.ball.y, ballVX: room.ball.vx, ballVY: room.ball.vy, ballThrown: room.ball.thrown }));
                 });
             }
         }
@@ -135,6 +147,7 @@ const resetRoom = (room) => {
     room.attempts = [0, 0];
     room.turn = 0;
     room.afk = [0, 0];
+    room.ball = { x: 300, y: 350, vx: 0, vy: 0, thrown: false };
 };
 
 server.listen(process.env.PORT || 8080, () => {
