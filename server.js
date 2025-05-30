@@ -42,12 +42,17 @@ wss.on('connection', (ws) => {
                     room.turn = 0;
                     room.players.forEach(p => p.ws.send(JSON.stringify({ type: 'start', turn: room.turn, ballX: room.ball.x, ballY: room.ball.y, ballVX: room.ball.vx, ballVY: room.ball.vy, ballThrown: room.ball.thrown })));
                 }
+                // Enviar el estado actualizado de las salas a todos los clientes
+                wss.clients.forEach(client => {
+                    client.send(JSON.stringify({ type: 'rooms', rooms: { room1: { players: rooms.room1.players.length }, room2: { players: rooms.room2.players.length } } }));
+                });
             } else {
                 ws.send(JSON.stringify({ type: 'full' }));
             }
         }
 
         if (data.type === 'shot') {
+            // Código existente para 'shot' (sin cambios)
             const room = rooms[data.room];
             const scored = data.scored;
             room.ball.x = data.ballX;
@@ -126,6 +131,11 @@ wss.on('connection', (ws) => {
         if (data.type === 'getRankings') {
             ws.send(JSON.stringify({ type: 'rankings', rankings }));
         }
+
+        // Nuevo mensaje para obtener el estado de las salas
+        if (data.type === 'getRooms') {
+            ws.send(JSON.stringify({ type: 'rooms', rooms: { room1: { players: rooms.room1.players.length }, room2: { players: rooms.room2.players.length } } }));
+        }
     });
 
     ws.on('close', () => {
@@ -135,6 +145,10 @@ wss.on('connection', (ws) => {
             if (index !== -1) {
                 room.players.splice(index, 1);
                 resetRoom(room);
+                // Enviar el estado actualizado de las salas a todos los clientes
+                wss.clients.forEach(client => {
+                    client.send(JSON.stringify({ type: 'rooms', rooms: { room1: { players: rooms.room1.players.length }, room2: { players: rooms.room2.players.length } } }));
+                });
             }
         }
     });
