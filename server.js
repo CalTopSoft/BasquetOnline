@@ -6,8 +6,8 @@ const server = http.createServer();
 const wss = new WebSocket.Server({ server });
 
 const rooms = {
-    room1: { players: [], scores: [0, 0], round: 1, attempts: [0, 0], turn: 0, afk: [0, 0], ball: { x: 300, y: 350, vx: 0, vy: 0, thrown: false } },
-    room2: { players: [], scores: [0, 0], round: 1, attempts: [0, 0], turn: 0, afk: [0, 0], ball: { x: 300, y: 350, vx: 0, vy: 0, thrown: false } }
+    room1: { players: [], scores: [0, 0], round: 1, attempts: [0, 0], turn: 0, afk: [0, 0], ball: { x: 150, y: 250, vx: 0, vy: 0, thrown: false } },
+    room2: { players: [], scores: [0, 0], round: 1, attempts: [0, 0], turn: 0, afk: [0, 0], ball: { x: 150, y: 250, vx: 0, vy: 0, thrown: false } }
 };
 let rankings = [];
 
@@ -42,7 +42,6 @@ wss.on('connection', (ws) => {
                     room.turn = 0;
                     room.players.forEach(p => p.ws.send(JSON.stringify({ type: 'start', turn: room.turn, ballX: room.ball.x, ballY: room.ball.y, ballVX: room.ball.vx, ballVY: room.ball.vy, ballThrown: room.ball.thrown })));
                 }
-                // Enviar el estado actualizado de las salas a todos los clientes
                 wss.clients.forEach(client => {
                     client.send(JSON.stringify({ type: 'rooms', rooms: { room1: { players: rooms.room1.players.length }, room2: { players: rooms.room2.players.length } } }));
                 });
@@ -52,7 +51,6 @@ wss.on('connection', (ws) => {
         }
 
         if (data.type === 'shot') {
-            // Código existente para 'shot' (sin cambios)
             const room = rooms[data.room];
             const scored = data.scored;
             room.ball.x = data.ballX;
@@ -73,11 +71,17 @@ wss.on('connection', (ws) => {
             });
 
             if (room.afk[room.turn] >= 2) {
-                const winner = room.turn === 0 ? 1 : 0;
+                const winner = room.turn === 0 && room.players.length > 1 ? 1 : 0;
                 room.players.forEach(p => {
-                    p.ws.send(JSON.stringify({ type: 'end', winner: room.players[winner].name }));
+                    if (room.players[winner]) {
+                        p.ws.send(JSON.stringify({ type: 'end', winner: room.players[winner].name }));
+                    } else {
+                        p.ws.send(JSON.stringify({ type: 'end', winner: 'Desconectado' }));
+                    }
                 });
-                rankings.push({ name: room.players[winner].name, score: room.scores[winner] });
+                if (room.players[winner]) {
+                    rankings.push({ name: room.players[winner].name, score: room.scores[winner] });
+                }
                 rankings.sort((a, b) => b.score - a.score);
                 rankings = rankings.slice(0, 5);
                 await saveRankings();
@@ -92,12 +96,18 @@ wss.on('connection', (ws) => {
                 if (room.round >= 3) {
                     let winner = room.scores[0] > room.scores[1] ? 0 : room.scores[1] > room.scores[0] ? 1 : -1;
                     room.players.forEach(p => {
-                        p.ws.send(JSON.stringify({ type: 'end', winner: winner === -1 ? 'tie' : room.players[winner].name }));
+                        if (winner === -1) {
+                            p.ws.send(JSON.stringify({ type: 'end', winner: 'tie' }));
+                        } else if (room.players[winner]) {
+                            p.ws.send(JSON.stringify({ type: 'end', winner: room.players[winner].name }));
+                        } else {
+                            p.ws.send(JSON.stringify({ type: 'end', winner: 'Desconectado' }));
+                        }
                     });
                     if (winner === -1) {
-                        rankings.push({ name: room.players[0].name, score: room.scores[0] });
-                        rankings.push({ name: room.players[1].name, score: room.scores[1] });
-                    } else {
+                        if (room.players[0]) rankings.push({ name: room.players[0].name, score: room.scores[0] });
+                        if (room.players[1]) rankings.push({ name: room.players[1].name, score: room.scores[1] });
+                    } else if (room.players[winner]) {
                         rankings.push({ name: room.players[winner].name, score: room.scores[winner] });
                     }
                     rankings.sort((a, b) => b.score - a.score);
@@ -117,8 +127,8 @@ wss.on('connection', (ws) => {
                 }
             } else {
                 room.turn = room.turn === 0 ? 1 : 0;
-                room.ball.x = 300;
-                room.ball.y = 350;
+                room.ball.x = 150; // Ajustado al nuevo canvas
+                room.ball.y = 250;
                 room.ball.vx = 0;
                 room.ball.vy = 0;
                 room.ball.thrown = false;
@@ -132,7 +142,6 @@ wss.on('connection', (ws) => {
             ws.send(JSON.stringify({ type: 'rankings', rankings }));
         }
 
-        // Nuevo mensaje para obtener el estado de las salas
         if (data.type === 'getRooms') {
             ws.send(JSON.stringify({ type: 'rooms', rooms: { room1: { players: rooms.room1.players.length }, room2: { players: rooms.room2.players.length } } }));
         }
@@ -145,7 +154,6 @@ wss.on('connection', (ws) => {
             if (index !== -1) {
                 room.players.splice(index, 1);
                 resetRoom(room);
-                // Enviar el estado actualizado de las salas a todos los clientes
                 wss.clients.forEach(client => {
                     client.send(JSON.stringify({ type: 'rooms', rooms: { room1: { players: rooms.room1.players.length }, room2: { players: rooms.room2.players.length } } }));
                 });
@@ -161,7 +169,7 @@ const resetRoom = (room) => {
     room.attempts = [0, 0];
     room.turn = 0;
     room.afk = [0, 0];
-    room.ball = { x: 300, y: 350, vx: 0, vy: 0, thrown: false };
+    room.ball = { x: 150, y: 250, vx: 0, vy: 0, thrown: false }; // Ajustado al nuevo canvas
 };
 
 server.listen(process.env.PORT || 8080, () => {
