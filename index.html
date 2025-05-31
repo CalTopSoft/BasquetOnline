@@ -251,7 +251,7 @@
                 };
                 const sound = soundMap[soundType];
                 if (sound) {
-                    sound.currentTime = 0; // Reiniciar el sonido si ya está reproduciéndose
+                    sound.currentTime = 0;
                     sound.play().catch(err => console.error(`Error playing ${soundType} sound:`, err));
                     console.log(`${soundType} sound played`);
                 }
@@ -278,7 +278,7 @@
             const [room, setRoom] = useState(null);
             const [gameStarted, setGameStarted] = useState(false);
             const [winner, setWinner] = useState(null);
-            const [updateTrigger, setUpdateTrigger] = useState(0); // Forzar re-renderizado
+            const [updateTrigger, setUpdateTrigger] = useState(0);
             const playersRef = useRef([]);
             const scoresRef = useRef([0, 0]);
             const roundRef = useRef(1);
@@ -295,14 +295,13 @@
 
                 const wsUrl = window.location.hostname === 'localhost'
                     ? 'ws://localhost:8080'
-                    : 'wss://basquetonline.onrender.com'; // URL corregida para Render
+                    : 'wss://basquetonline.onrender.com';
                 wsRef.current = new WebSocket(wsUrl);
 
                 wsRef.current.onopen = () => {
                     console.log("Connected to WebSocket server");
                     wsRef.current.send(JSON.stringify({ type: 'getRooms' }));
                     wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
-                    SoundManager.playBackground();
                 };
 
                 wsRef.current.onmessage = (event) => {
@@ -368,7 +367,7 @@
                             }
                         }
                         lastBallStateRef.current = { ...data.ball, scores: [...data.scores] };
-                        setUpdateTrigger(prev => prev + 1); // Forzar re-renderizado
+                        setUpdateTrigger(prev => prev + 1);
                     }
 
                     if (data.type === 'newRound') {
@@ -411,7 +410,19 @@
             }, []);
 
             const Home = ({ setScreen, name, setName }) => {
-                console.log("Home component rendered");
+                const startSound = () => {
+                    SoundManager.playBackground();
+                };
+
+                useEffect(() => {
+                    const handleInteraction = () => {
+                        startSound();
+                        document.removeEventListener('click', handleInteraction);
+                    };
+                    document.addEventListener('click', handleInteraction);
+                    return () => document.removeEventListener('click', handleInteraction);
+                }, []);
+
                 return (
                     <div className="container">
                         <h1>Juego de Baloncesto</h1>
@@ -424,14 +435,12 @@
                         <br />
                         <button onClick={() => setScreen('rooms')}>Entrar a Partida</button>
                         <button onClick={() => setScreen('rankings')}>Rankings</button>
-                        <button onClick={() => setScreen('credits')}>Créditos v1.3</button>
+                        <button onClick={() => setScreen('credits')}>Créditos v8.0</button>
                     </div>
                 );
             };
 
             const Rooms = ({ setScreen }) => {
-                console.log("Rooms component rendered");
-
                 const joinRoom = (roomName) => {
                     if (wsRef.current) {
                         wsRef.current.send(JSON.stringify({ type: 'join', room: roomName, name }));
@@ -465,8 +474,6 @@
             };
 
             const Gameplay = ({ name }) => {
-                console.log("Gameplay component rendered", { gameStarted });
-
                 const sketchRef = useRef(null);
                 const p5Instance = useRef(null);
                 const timerRef = useRef(8);
@@ -496,7 +503,7 @@
                     p.setup = () => {
                         console.log("Setup called");
                         p.createCanvas(600, 400);
-                        p.frameRate(50);
+                        p.frameRate(30); // Reducir a 30 FPS para mejorar rendimiento en móvil
                     };
 
                     p.draw = () => {
@@ -582,7 +589,7 @@
                 };
 
                 useEffect(() => {
-                    if (!isMounted.current && sketchRef.current) {
+                    if (!isMounted.current && sketchRef.current && gameStarted) {
                         p5Instance.current = new p5(setupSketch, sketchRef.current);
                         isMounted.current = true;
                     }
@@ -594,7 +601,7 @@
                             isMounted.current = false;
                         }
                     };
-                }, []);
+                }, [gameStarted]); // Solo se monta/desmonta cuando gameStarted cambia
 
                 useEffect(() => {
                     const handleMessage = (event) => {
@@ -647,7 +654,6 @@
             };
 
             const Rankings = ({ setScreen }) => {
-                console.log("Rankings component rendered");
                 return (
                     <div className="container">
                         <h1>Rankings</h1>
@@ -662,7 +668,6 @@
             };
 
             const Credits = ({ setScreen }) => {
-                console.log("Credits component rendered");
                 return (
                     <div className="container">
                         <h1>Créditos</h1>
@@ -676,7 +681,6 @@
             };
 
             const Result = ({ winner, name, setScreen }) => {
-                console.log("Result component rendered");
                 return (
                     <div className="container">
                         <h1>{winner === 'tie' ? '¡Empate!' : winner === name ? '¡Ganaste!' : 'Perdiste'}</h1>
