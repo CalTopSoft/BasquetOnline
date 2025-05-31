@@ -192,7 +192,7 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useEffect, useRef, useCallback, useMemo } = React;
+        const { useState, useEffect, useRef } = React;
 
         const SoundManager = (() => {
             let backgroundSound = null;
@@ -204,7 +204,6 @@
             let winSound = null;
             let loseSound = null;
             let isSoundPlaying = false;
-            let soundPromises = [];
 
             const init = () => {
                 backgroundSound = new Audio('sound/background.mp3');
@@ -219,18 +218,12 @@
                 winSound = new Audio('sound/win.mp3');
                 loseSound = new Audio('sound/lose.mp3');
 
-                [backgroundSound, bounceSound, hoopHitSound, wheelsSound, scoreSound, scoreAddSound, winSound, loseSound].forEach(sound => {
-                    sound.load();
-                });
-
                 console.log("SoundManager initialized with native Audio API");
             };
 
             const playBackground = () => {
                 if (backgroundSound && !isSoundPlaying) {
-                    const playPromise = backgroundSound.play();
-                    soundPromises.push(playPromise);
-                    playPromise.catch(err => console.error("Error playing background sound:", err));
+                    backgroundSound.play().catch(err => console.error("Error playing background sound:", err));
                     isSoundPlaying = true;
                     console.log("Background sound started");
                 }
@@ -258,9 +251,7 @@
                 const sound = soundMap[soundType];
                 if (sound) {
                     sound.currentTime = 0;
-                    const playPromise = sound.play();
-                    soundPromises.push(playPromise);
-                    playPromise.catch(err => console.error(`Error playing ${soundType} sound:`, err));
+                    sound.play().catch(err => console.error(`Error playing ${soundType} sound:`, err));
                     console.log(`${soundType} sound played`);
                 }
             };
@@ -272,9 +263,6 @@
                         sound.pause();
                         sound.currentTime = 0;
                     }
-                });
-                Promise.all(soundPromises).then(() => {
-                    soundPromises = [];
                 });
             };
 
@@ -289,10 +277,10 @@
             const [room, setRoom] = useState(null);
             const [gameStarted, setGameStarted] = useState(false);
             const [winner, setWinner] = useState(null);
-            const [players, setPlayers] = useState([]);
-            const [scores, setScores] = useState([0, 0]);
-            const [round, setRound] = useState(1);
-            const [turn, setTurn] = useState(0);
+            const playersRef = useRef([]);
+            const scoresRef = useRef([0, 0]);
+            const roundRef = useRef(1);
+            const turnRef = useRef(0);
             const countdownRef = useRef(0);
             const rankingsRef = useRef([]);
             const roomStatusRef = useRef({ room1: { players: 0 }, room2: { players: 0 } });
@@ -312,12 +300,7 @@
                     wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
                 };
 
-                wsRef.current.onerror = (error) => {
-                    console.error("WebSocket error:", error);
-                    alert("No se pudo conectar al servidor. Por favor, verifica la conexión y vuelve a intentarlo.");
-                };
-
-                const handleMessage = (event) => {
+                wsRef.current.onmessage = (event) => {
                     const data = JSON.parse(event.data);
 
                     if (data.type === 'rooms') {
@@ -327,29 +310,24 @@
 
                     if (data.type === 'joined') {
                         setRoom(data.room);
-                        setPlayers(data.players);
+                        playersRef.current = data.players;
                         playerIndexRef.current = data.playerIndex;
                         setScreen('gameplay');
                     }
 
-                    if (data.type === 'start' && screen === 'gameplay') {
+                    if (data.type === 'start') {
                         setGameStarted(true);
-                        setPlayers(data.players);
-                        setScores(data.scores);
-                        setRound(data.round);
-                        setTurn(data.turn);
+                        playersRef.current = data.players;
+                        scoresRef.current = data.scores;
+                        roundRef.current = data.round;
+                        turnRef.current = data.turn;
                     }
 
-                    if (data.type === 'update' && screen === 'gameplay') {
-                        setScores(prevScores => {
-                            if (JSON.stringify(prevScores) !== JSON.stringify(data.scores)) {
-                                return data.scores;
-                            }
-                            return prevScores;
-                        });
-                        setRound(prevRound => prevRound !== data.round ? data.round : prevRound);
-                        setPlayers(prevPlayers => prevPlayers.join() !== data.players.join() ? data.players : prevPlayers);
-                        setTurn(prevTurn => prevTurn !== data.turn ? data.turn : prevTurn);
+                    if (data.type === 'update') {
+                        scoresRef.current = data.scores;
+                        roundRef.current = data.round;
+                        playersRef.current = data.players;
+                        turnRef.current = data.turn;
 
                         if (lastBallStateRef.current && data.ball) {
                             if (
@@ -386,9 +364,8 @@
                         lastBallStateRef.current = { ...data.ball, scores: [...data.scores] };
                     }
 
-                    if (data.type === 'newRound' && screen === 'gameplay') {
-                        setRound(data.round);
-                        setTurn(data.turn);
+                    if (data.type === 'newRound') {
+                        roundRef.current = data.round;
                     }
 
                     if (data.type === 'end') {
@@ -412,14 +389,9 @@
                     }
                 };
 
-                wsRef.current.onmessage = (event) => {
-                    handleMessage(event);
-                };
-
                 wsRef.current.onclose = () => {
                     console.log("Disconnected from WebSocket server");
                     SoundManager.stopBackground();
-                    alert("Se perdió la conexión con el servidor. Por favor, recarga la página.");
                 };
 
                 return () => {
@@ -428,12 +400,12 @@
                     }
                     SoundManager.cleanup();
                 };
-            }, [name, screen]);
+            }, []);
 
             const Home = ({ setScreen, name, setName }) => {
-                const startSound = useCallback(() => {
+                const startSound = () => {
                     SoundManager.playBackground();
-                }, []);
+                };
 
                 useEffect(() => {
                     const handleInteraction = () => {
@@ -442,7 +414,7 @@
                     };
                     document.addEventListener('click', handleInteraction);
                     return () => document.removeEventListener('click', handleInteraction);
-                }, [startSound]);
+                }, []);
 
                 return (
                     <div className="container">
@@ -462,11 +434,11 @@
             };
 
             const Rooms = ({ setScreen }) => {
-                const joinRoom = useCallback((roomName) => {
+                const joinRoom = (roomName) => {
                     if (wsRef.current) {
                         wsRef.current.send(JSON.stringify({ type: 'join', room: roomName, name }));
                     }
-                }, [name]);
+                };
 
                 return (
                     <div className="container">
@@ -570,7 +542,7 @@
                     };
 
                     p.mousePressed = () => {
-                        if (gameStarted && turn === playerIndexRef.current && !ballRef.current.thrown && attemptsRef.current[playerIndexRef.current] < 5) {
+                        if (gameStarted && turnRef.current === playerIndexRef.current && !ballRef.current.thrown && attemptsRef.current[playerIndexRef.current] < 5) {
                             if (p.mouseX >= ballRef.current.x - ballRef.current.r && p.mouseX <= ballRef.current.x + ballRef.current.r && 
                                 p.mouseY >= ballRef.current.y - ballRef.current.r && p.mouseY <= ballRef.current.y + ballRef.current.r) {
                                 dragging = true;
@@ -623,23 +595,25 @@
                     };
                 }, [gameStarted]);
 
-                const handleMessage = useCallback((event) => {
-                    const data = JSON.parse(event.data);
-                    if (data.type === 'update' && sketchRef.current) {
-                        ballRef.current = { ...ballRef.current, ...data.ball };
-                        hoopXRef.current = data.hoopX;
-                        timerRef.current = data.timer;
-                        attemptsRef.current = data.attempts;
-
-                        updateCounterRef.current += 1;
-                        if (updateCounterRef.current % 5 === 0 && sketchRef.current) {
-                            sketchRef.current.dispatchEvent(new Event('update'));
-                        }
-                    }
-                }, []);
-
                 useEffect(() => {
-                    if (wsRef.current && sketchRef.current) {
+                    const handleMessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'update') {
+                            ballRef.current = { ...ballRef.current, ...data.ball };
+                            hoopXRef.current = data.hoopX;
+                            timerRef.current = data.timer;
+                            attemptsRef.current = data.attempts;
+
+                            // Limitar la frecuencia de updates para la UI
+                            updateCounterRef.current += 1;
+                            if (updateCounterRef.current % 5 === 0) {
+                                // Forzar un re-render cada 5 updates (aproximadamente cada 100ms)
+                                sketchRef.current.dispatchEvent(new Event('update'));
+                            }
+                        }
+                    };
+
+                    if (wsRef.current) {
                         wsRef.current.addEventListener('message', handleMessage);
                     }
 
@@ -648,25 +622,25 @@
                             wsRef.current.removeEventListener('message', handleMessage);
                         }
                     };
-                }, [handleMessage]);
+                }, []);
 
-                return useMemo(() => (
+                return (
                     <div className="gameplay">
                         <div className="game-container">
                             <div ref={sketchRef}></div>
-                            <div className="score">{scores[0]} | {scores[1]}</div>
-                            <div className="turn">Turno: {players[turn] || 'Esperando...'}</div>
-                            <div className="round">Ronda {round}/3</div>
-                            {players[0] && (
+                            <div className="score">{scoresRef.current[0]} | {scoresRef.current[1]}</div>
+                            <div className="turn">Turno: {playersRef.current[turnRef.current] || 'Esperando...'}</div>
+                            <div className="round">Ronda {roundRef.current}/3</div>
+                            {playersRef.current[0] && (
                                 <>
                                     <img src="img/iconosplayer/player1.png" alt="Player 1" className="player-icon player1" />
-                                    <div className="player-name player1-name">{players[0]}</div>
+                                    <div className="player-name player1-name">{playersRef.current[0]}</div>
                                 </>
                             )}
-                            {players[1] && (
+                            {playersRef.current[1] && (
                                 <>
                                     <img src="img/iconosplayer/player2.png" alt="Player 2" className="player-icon player2" />
-                                    <div className="player-name player2-name">{players[1]}</div>
+                                    <div className="player-name player2-name">{playersRef.current[1]}</div>
                                 </>
                             )}
                             <div className="turn-indicator" style={{ display: 'none' }}>Modo Edición - Sin Turnos</div>
@@ -675,7 +649,7 @@
                             {!gameStarted && <div className="waiting-message">Esperando al segundo jugador...</div>}
                         </div>
                     </div>
-                ), [scores, round, players, turn, gameStarted, timerRef.current]);
+                );
             };
 
             const Rankings = ({ setScreen }) => {
