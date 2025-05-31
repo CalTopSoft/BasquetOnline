@@ -20,7 +20,8 @@ const rooms = {
         hoopDirection: 1, 
         bounceCount: 0,
         gameStarted: false,
-        gameEnded: false
+        gameEnded: false,
+        attemptsPerPlayer: [0, 0] // Contador de intentos por jugador
     },
     room2: { 
         players: [], 
@@ -36,7 +37,8 @@ const rooms = {
         hoopDirection: 1, 
         bounceCount: 0,
         gameStarted: false,
-        gameEnded: false
+        gameEnded: false,
+        attemptsPerPlayer: [0, 0]
     }
 };
 let rankings = [];
@@ -56,7 +58,6 @@ const saveRankings = async () => {
 
 loadRankings();
 
-// Actualizar el estado del juego cada 20ms (50 FPS)
 const updateGameState = () => {
     for (const roomName in rooms) {
         const room = rooms[roomName];
@@ -64,26 +65,26 @@ const updateGameState = () => {
 
         const now = Date.now();
 
-        // Actualizar temporizador
         if (now - room.lastTimerUpdate >= 1000 && !room.ball.thrown) {
             room.timer -= 1;
             room.lastTimerUpdate = now;
             if (room.timer <= 0) {
                 room.timer = 8;
+                room.attemptsPerPlayer[room.turn]++;
                 room.turn = (room.turn + 1) % 2;
                 room.bounceCount = 0;
                 room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
-                room.attempts[room.turn]++;
                 checkEndOfTurn(room, roomName);
             }
         }
 
-        // Actualizar posición del aro
-        let hoopSpeed = room.round >= 2 ? (room.round === 3 ? 1.5 : 1) : 1;
-        room.hoopX += room.hoopDirection * hoopSpeed;
-        if (room.hoopX >= 450 || room.hoopX <= 150) room.hoopDirection *= -1;
+        // Movimiento del aro: solo a partir de la ronda 2
+        if (room.round >= 2) {
+            let hoopSpeed = room.round === 3 ? 1.5 : 1;
+            room.hoopX += room.hoopDirection * hoopSpeed;
+            if (room.hoopX >= 450 || room.hoopX <= 150) room.hoopDirection *= -1;
+        }
 
-        // Actualizar posición del balón si está lanzado
         if (room.ball.thrown) {
             let ballScale = 1;
             if (room.ball.y <= 113) {
@@ -123,17 +124,17 @@ const updateGameState = () => {
                 if (room.bounceCount === 3) {
                     room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
                     room.timer = 8;
+                    room.attemptsPerPlayer[room.turn]++;
                     room.turn = (room.turn + 1) % 2;
                     room.bounceCount = 0;
-                    room.attempts[room.turn]++;
                     checkEndOfTurn(room, roomName);
                 }
             } else if (room.ball.y > 400 && room.bounceCount >= 3) {
                 room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
                 room.timer = 8;
+                room.attemptsPerPlayer[room.turn]++;
                 room.turn = (room.turn + 1) % 2;
                 room.bounceCount = 0;
-                room.attempts[room.turn]++;
                 checkEndOfTurn(room, roomName);
             }
 
@@ -165,9 +166,9 @@ const updateGameState = () => {
                     room.afk[room.turn] = 0;
                     room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
                     room.timer = 8;
+                    room.attemptsPerPlayer[room.turn]++;
                     room.turn = (room.turn + 1) % 2;
                     room.bounceCount = 0;
-                    room.attempts[room.turn]++;
                     checkEndOfTurn(room, roomName);
                 } else {
                     const hitLeftCorner = Math.abs(room.ball.x - hoopLeft) < 15 && Math.abs(room.ball.y - hoopTop) < 15;
@@ -182,7 +183,6 @@ const updateGameState = () => {
             }
         }
 
-        // Enviar estado actualizado a los clientes
         room.players.forEach(p => {
             p.ws.send(JSON.stringify({
                 type: 'update',
@@ -192,16 +192,16 @@ const updateGameState = () => {
                 timer: room.timer,
                 hoopX: room.hoopX,
                 round: room.round,
-                attempts: room.attempts,
+                attempts: room.attemptsPerPlayer,
                 players: room.players.map(player => player.name)
             }));
         });
     }
 };
 
-// Comprobar si el turno o la ronda ha terminado
 const checkEndOfTurn = async (room, roomName) => {
-    if (room.attempts[room.turn] >= 5) {
+    const maxAttemptsPerPlayer = 5;
+    if (room.attemptsPerPlayer[0] >= maxAttemptsPerPlayer && room.attemptsPerPlayer[1] >= maxAttemptsPerPlayer) {
         room.afk[room.turn]++;
         if (room.afk[room.turn] >= 2) {
             const winner = room.turn === 0 && room.players.length > 1 ? 1 : 0;
@@ -251,7 +251,7 @@ const checkEndOfTurn = async (room, roomName) => {
             resetRoom(room);
         } else {
             room.round++;
-            room.attempts = [0, 0];
+            room.attemptsPerPlayer = [0, 0];
             room.turn = 0;
             room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
             room.players.forEach(p => {
@@ -287,7 +287,7 @@ wss.on('connection', (ws) => {
                             ball: room.ball, 
                             scores: room.scores, 
                             round: room.round, 
-                            attempts: room.attempts,
+                            attempts: room.attemptsPerPlayer,
                             players: room.players.map(player => player.name)
                         }));
                     });
@@ -364,6 +364,7 @@ const resetRoom = (room) => {
     room.scores = [0, 0];
     room.round = 1;
     room.attempts = [0, 0];
+    room.attemptsPerPlayer = [0, 0];
     room.turn = 0;
     room.afk = [0, 0];
     room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
@@ -376,8 +377,7 @@ const resetRoom = (room) => {
     room.gameEnded = false;
 };
 
-// Actualizar el juego cada 20ms (50 FPS)
-setInterval(updateGameState, 20);
+setInterval(updateGameState, 33); // Actualizar cada 33ms (~30 FPS)
 
 server.listen(process.env.PORT || 8080, () => {
     console.log('Server running on port 8080');
