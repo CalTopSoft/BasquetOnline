@@ -20,7 +20,8 @@ const rooms = {
         hoopDirection: 1, 
         bounceCount: 0,
         gameStarted: false,
-        gameEnded: false
+        gameEnded: false,
+        attemptsPerPlayer: [0, 0] // Contador de intentos por jugador en la ronda actual
     },
     room2: { 
         players: [], 
@@ -36,7 +37,8 @@ const rooms = {
         hoopDirection: 1, 
         bounceCount: 0,
         gameStarted: false,
-        gameEnded: false
+        gameEnded: false,
+        attemptsPerPlayer: [0, 0]
     }
 };
 let rankings = [];
@@ -56,7 +58,6 @@ const saveRankings = async () => {
 
 loadRankings();
 
-// Actualizar el estado del juego cada 20ms (50 FPS)
 const updateGameState = () => {
     for (const roomName in rooms) {
         const room = rooms[roomName];
@@ -64,26 +65,28 @@ const updateGameState = () => {
 
         const now = Date.now();
 
-        // Actualizar temporizador
         if (now - room.lastTimerUpdate >= 1000 && !room.ball.thrown) {
             room.timer -= 1;
             room.lastTimerUpdate = now;
             if (room.timer <= 0) {
                 room.timer = 8;
-                room.turn = (room.turn + 1) % 2;
+                room.attemptsPerPlayer[room.turn]++;
                 room.bounceCount = 0;
                 room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
-                room.attempts[room.turn]++;
-                checkEndOfTurn(room, roomName);
+                if (room.attemptsPerPlayer[room.turn] >= 5) {
+                    room.turn = (room.turn + 1) % 2;
+                    room.attemptsPerPlayer[room.turn] = 0;
+                    checkEndOfTurn(room, roomName);
+                }
             }
         }
 
-        // Actualizar posición del aro
-        let hoopSpeed = room.round >= 2 ? (room.round === 3 ? 1.5 : 1) : 1;
-        room.hoopX += room.hoopDirection * hoopSpeed;
-        if (room.hoopX >= 450 || room.hoopX <= 150) room.hoopDirection *= -1;
+        if (room.round > 1) {
+            let hoopSpeed = room.round === 3 ? 1.5 : 1;
+            room.hoopX += room.hoopDirection * hoopSpeed;
+            if (room.hoopX >= 450 || room.hoopX <= 150) room.hoopDirection *= -1;
+        }
 
-        // Actualizar posición del balón si está lanzado
         if (room.ball.thrown) {
             let ballScale = 1;
             if (room.ball.y <= 113) {
@@ -123,18 +126,22 @@ const updateGameState = () => {
                 if (room.bounceCount === 3) {
                     room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
                     room.timer = 8;
-                    room.turn = (room.turn + 1) % 2;
-                    room.bounceCount = 0;
-                    room.attempts[room.turn]++;
-                    checkEndOfTurn(room, roomName);
+                    room.attemptsPerPlayer[room.turn]++;
+                    if (room.attemptsPerPlayer[room.turn] >= 5) {
+                        room.turn = (room.turn + 1) % 2;
+                        room.attemptsPerPlayer[room.turn] = 0;
+                        checkEndOfTurn(room, roomName);
+                    }
                 }
             } else if (room.ball.y > 400 && room.bounceCount >= 3) {
                 room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
                 room.timer = 8;
-                room.turn = (room.turn + 1) % 2;
-                room.bounceCount = 0;
-                room.attempts[room.turn]++;
-                checkEndOfTurn(room, roomName);
+                room.attemptsPerPlayer[room.turn]++;
+                if (room.attemptsPerPlayer[room.turn] >= 5) {
+                    room.turn = (room.turn + 1) % 2;
+                    room.attemptsPerPlayer[room.turn] = 0;
+                    checkEndOfTurn(room, roomName);
+                }
             }
 
             const hoopLeft = room.hoopX - 75 / 2;
@@ -165,10 +172,13 @@ const updateGameState = () => {
                     room.afk[room.turn] = 0;
                     room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
                     room.timer = 8;
-                    room.turn = (room.turn + 1) % 2;
                     room.bounceCount = 0;
-                    room.attempts[room.turn]++;
-                    checkEndOfTurn(room, roomName);
+                    room.attemptsPerPlayer[room.turn]++;
+                    if (room.attemptsPerPlayer[room.turn] >= 5) {
+                        room.turn = (room.turn + 1) % 2;
+                        room.attemptsPerPlayer[room.turn] = 0;
+                        checkEndOfTurn(room, roomName);
+                    }
                 } else {
                     const hitLeftCorner = Math.abs(room.ball.x - hoopLeft) < 15 && Math.abs(room.ball.y - hoopTop) < 15;
                     const hitRightCorner = Math.abs(room.ball.x - hoopRight) < 15 && Math.abs(room.ball.y - hoopTop) < 15;
@@ -182,7 +192,6 @@ const updateGameState = () => {
             }
         }
 
-        // Enviar estado actualizado a los clientes
         room.players.forEach(p => {
             p.ws.send(JSON.stringify({
                 type: 'update',
@@ -192,41 +201,18 @@ const updateGameState = () => {
                 timer: room.timer,
                 hoopX: room.hoopX,
                 round: room.round,
-                attempts: room.attempts,
+                attempts: room.attemptsPerPlayer,
                 players: room.players.map(player => player.name)
             }));
         });
     }
 };
 
-// Comprobar si el turno o la ronda ha terminado
 const checkEndOfTurn = async (room, roomName) => {
-    if (room.attempts[room.turn] >= 5) {
-        room.afk[room.turn]++;
-        if (room.afk[room.turn] >= 2) {
-            const winner = room.turn === 0 && room.players.length > 1 ? 1 : 0;
-            room.players.forEach(p => {
-                if (room.players[winner]) {
-                    p.ws.send(JSON.stringify({ type: 'end', winner: room.players[winner].name }));
-                } else {
-                    p.ws.send(JSON.stringify({ type: 'end', winner: 'Desconectado' }));
-                }
-            });
-            if (room.players[winner]) {
-                rankings.push({ name: room.players[winner].name, score: room.scores[winner] });
-            }
-            rankings.sort((a, b) => b.score - a.score);
-            rankings = rankings.slice(0, 5);
-            await saveRankings();
-            wss.clients.forEach(client => {
-                client.send(JSON.stringify({ type: 'rankings', rankings }));
-            });
-            resetRoom(room);
-            return;
-        }
-
+    if (room.attemptsPerPlayer.every(attempts => attempts >= 5)) {
         if (room.round >= 3) {
             let winner = room.scores[0] > room.scores[1] ? 0 : room.scores[1] > room.scores[0] ? 1 : -1;
+            room.gameEnded = true;
             room.players.forEach(p => {
                 if (winner === -1) {
                     p.ws.send(JSON.stringify({ type: 'end', winner: 'tie' }));
@@ -251,9 +237,11 @@ const checkEndOfTurn = async (room, roomName) => {
             resetRoom(room);
         } else {
             room.round++;
-            room.attempts = [0, 0];
+            room.attemptsPerPlayer = [0, 0];
             room.turn = 0;
             room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
+            room.hoopX = 300;
+            room.hoopDirection = 1;
             room.players.forEach(p => {
                 p.ws.send(JSON.stringify({ type: 'newRound', round: room.round }));
             });
@@ -280,6 +268,7 @@ wss.on('connection', (ws) => {
                     room.gameStarted = true;
                     room.turn = 0;
                     room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
+                    room.attemptsPerPlayer = [0, 0];
                     room.players.forEach(p => {
                         p.ws.send(JSON.stringify({ 
                             type: 'start', 
@@ -287,7 +276,7 @@ wss.on('connection', (ws) => {
                             ball: room.ball, 
                             scores: room.scores, 
                             round: room.round, 
-                            attempts: room.attempts,
+                            attempts: room.attemptsPerPlayer,
                             players: room.players.map(player => player.name)
                         }));
                     });
@@ -374,9 +363,9 @@ const resetRoom = (room) => {
     room.bounceCount = 0;
     room.gameStarted = false;
     room.gameEnded = false;
+    room.attemptsPerPlayer = [0, 0];
 };
 
-// Actualizar el juego cada 20ms (50 FPS)
 setInterval(updateGameState, 20);
 
 server.listen(process.env.PORT || 8080, () => {
