@@ -8,7 +8,6 @@
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/addons/p5.sound.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -195,9 +194,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Manejador global de sonidos para evitar recarga
         const SoundManager = (() => {
-            let p5Instance = null;
             let backgroundSound = null;
             let bounceSound = null;
             let hoopHitSound = null;
@@ -209,24 +206,24 @@
             let isSoundPlaying = false;
 
             const init = () => {
-                if (!p5Instance) {
-                    p5Instance = new p5(() => {});
-                    backgroundSound = p5Instance.loadSound('sound/background.mp3');
-                    bounceSound = p5Instance.loadSound('sound/ball_bounce.mp3');
-                    hoopHitSound = p5Instance.loadSound('sound/hoop_hit.mp3');
-                    wheelsSound = p5Instance.loadSound('sound/wheels.mp3');
-                    scoreSound = p5Instance.loadSound('sound/score.mp3');
-                    scoreAddSound = p5Instance.loadSound('sound/score_add.mp3');
-                    winSound = p5Instance.loadSound('sound/win.mp3');
-                    loseSound = p5Instance.loadSound('sound/lose.mp3');
-                    console.log("SoundManager initialized and resources loaded");
-                }
+                backgroundSound = new Audio('sound/background.mp3');
+                backgroundSound.loop = true;
+                backgroundSound.volume = 0.3;
+
+                bounceSound = new Audio('sound/ball_bounce.mp3');
+                hoopHitSound = new Audio('sound/hoop_hit.mp3');
+                wheelsSound = new Audio('sound/wheels.mp3');
+                scoreSound = new Audio('sound/score.mp3');
+                scoreAddSound = new Audio('sound/score_add.mp3');
+                winSound = new Audio('sound/win.mp3');
+                loseSound = new Audio('sound/lose.mp3');
+
+                console.log("SoundManager initialized with native Audio API");
             };
 
             const playBackground = () => {
-                if (backgroundSound && backgroundSound.isLoaded() && !isSoundPlaying) {
-                    backgroundSound.setVolume(0.3);
-                    backgroundSound.loop();
+                if (backgroundSound && !isSoundPlaying) {
+                    backgroundSound.play().catch(err => console.error("Error playing background sound:", err));
                     isSoundPlaying = true;
                     console.log("Background sound started");
                 }
@@ -234,7 +231,8 @@
 
             const stopBackground = () => {
                 if (backgroundSound) {
-                    backgroundSound.stop();
+                    backgroundSound.pause();
+                    backgroundSound.currentTime = 0;
                     isSoundPlaying = false;
                     console.log("Background sound stopped");
                 }
@@ -251,18 +249,21 @@
                     lose: loseSound
                 };
                 const sound = soundMap[soundType];
-                if (sound && sound.isLoaded() && !sound.isPlaying()) {
-                    sound.play();
+                if (sound) {
+                    sound.currentTime = 0;
+                    sound.play().catch(err => console.error(`Error playing ${soundType} sound:`, err));
                     console.log(`${soundType} sound played`);
                 }
             };
 
             const cleanup = () => {
-                if (p5Instance) {
-                    p5Instance.remove();
-                    p5Instance = null;
-                }
                 stopBackground();
+                [bounceSound, hoopHitSound, wheelsSound, scoreSound, scoreAddSound, winSound, loseSound].forEach(sound => {
+                    if (sound) {
+                        sound.pause();
+                        sound.currentTime = 0;
+                    }
+                });
             };
 
             return { init, playBackground, stopBackground, playSound, cleanup };
@@ -276,9 +277,11 @@
             const [room, setRoom] = useState(null);
             const [gameStarted, setGameStarted] = useState(false);
             const [winner, setWinner] = useState(null);
+            const [updateTrigger, setUpdateTrigger] = useState(0);
             const playersRef = useRef([]);
             const scoresRef = useRef([0, 0]);
             const roundRef = useRef(1);
+            const turnRef = useRef(0);
             const countdownRef = useRef(0);
             const rankingsRef = useRef([]);
             const roomStatusRef = useRef({ room1: { players: 0 }, room2: { players: 0 } });
@@ -287,20 +290,15 @@
             const lastBallStateRef = useRef(null);
 
             useEffect(() => {
-                // Inicializar SoundManager
                 SoundManager.init();
 
-                // Conectar al servidor WebSocket
-                const wsUrl = window.location.hostname === 'localhost'
-                    ? 'ws://localhost:8080'
-                    : 'https://basquetonline.onrender.com'; // Reemplaza con tu URL de Render
+                const wsUrl = 'wss://basquetonline.onrender.com';
                 wsRef.current = new WebSocket(wsUrl);
 
                 wsRef.current.onopen = () => {
                     console.log("Connected to WebSocket server");
                     wsRef.current.send(JSON.stringify({ type: 'getRooms' }));
                     wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
-                    SoundManager.playBackground();
                 };
 
                 wsRef.current.onmessage = (event) => {
@@ -308,7 +306,7 @@
 
                     if (data.type === 'rooms') {
                         roomStatusRef.current = data.rooms;
-                        setScreen(screen => screen); // Forzar actualización de la pantalla de salas
+                        setScreen(screen => screen);
                     }
 
                     if (data.type === 'joined') {
@@ -323,14 +321,16 @@
                         playersRef.current = data.players;
                         scoresRef.current = data.scores;
                         roundRef.current = data.round;
+                        turnRef.current = data.turn;
+                        setUpdateTrigger(prev => prev + 1);
                     }
 
                     if (data.type === 'update') {
                         scoresRef.current = data.scores;
                         roundRef.current = data.round;
                         playersRef.current = data.players;
+                        turnRef.current = data.turn;
 
-                        // Reproducir sonidos según el estado del balón
                         if (lastBallStateRef.current && data.ball) {
                             if (
                                 lastBallStateRef.current.thrown &&
@@ -364,10 +364,12 @@
                             }
                         }
                         lastBallStateRef.current = { ...data.ball, scores: [...data.scores] };
+                        setUpdateTrigger(prev => prev + 1);
                     }
 
                     if (data.type === 'newRound') {
                         roundRef.current = data.round;
+                        setUpdateTrigger(prev => prev + 1);
                     }
 
                     if (data.type === 'end') {
@@ -405,7 +407,19 @@
             }, []);
 
             const Home = ({ setScreen, name, setName }) => {
-                console.log("Home component rendered");
+                const startSound = () => {
+                    SoundManager.playBackground();
+                };
+
+                useEffect(() => {
+                    const handleInteraction = () => {
+                        startSound();
+                        document.removeEventListener('click', handleInteraction);
+                    };
+                    document.addEventListener('click', handleInteraction);
+                    return () => document.removeEventListener('click', handleInteraction);
+                }, []);
+
                 return (
                     <div className="container">
                         <h1>Juego de Baloncesto</h1>
@@ -424,8 +438,6 @@
             };
 
             const Rooms = ({ setScreen }) => {
-                console.log("Rooms component rendered");
-
                 const joinRoom = (roomName) => {
                     if (wsRef.current) {
                         wsRef.current.send(JSON.stringify({ type: 'join', room: roomName, name }));
@@ -459,11 +471,8 @@
             };
 
             const Gameplay = ({ name }) => {
-                console.log("Gameplay component rendered", { gameStarted });
-
                 const sketchRef = useRef(null);
                 const p5Instance = useRef(null);
-                const turnRef = useRef(0);
                 const timerRef = useRef(8);
                 const ballRef = useRef({ x: 300, y: 370, r: 30, vx: 0, vy: 0, thrown: false, rotation: 0 });
                 const hoopXRef = useRef(300);
@@ -477,7 +486,6 @@
                     let ballScale = 1;
 
                     p.preload = () => {
-                        console.log("Preload called");
                         try {
                             ballImg = p.loadImage('img/balon/ball.png');
                             hoopBaseImg = p.loadImage('img/arco/hoop_base.png');
@@ -489,9 +497,8 @@
                     };
 
                     p.setup = () => {
-                        console.log("Setup called");
                         p.createCanvas(600, 400);
-                        p.frameRate(50);
+                        p.frameRate(30);
                     };
 
                     p.draw = () => {
@@ -577,7 +584,7 @@
                 };
 
                 useEffect(() => {
-                    if (!isMounted.current && sketchRef.current) {
+                    if (!isMounted.current && sketchRef.current && gameStarted) {
                         p5Instance.current = new p5(setupSketch, sketchRef.current);
                         isMounted.current = true;
                     }
@@ -589,7 +596,7 @@
                             isMounted.current = false;
                         }
                     };
-                }, []);
+                }, [gameStarted]);
 
                 useEffect(() => {
                     const handleMessage = (event) => {
@@ -597,7 +604,6 @@
                         if (data.type === 'update') {
                             ballRef.current = { ...ballRef.current, ...data.ball };
                             hoopXRef.current = data.hoopX;
-                            turnRef.current = data.turn;
                             timerRef.current = data.timer;
                             attemptsRef.current = data.attempts;
                         }
@@ -643,7 +649,6 @@
             };
 
             const Rankings = ({ setScreen }) => {
-                console.log("Rankings component rendered");
                 return (
                     <div className="container">
                         <h1>Rankings</h1>
@@ -658,7 +663,6 @@
             };
 
             const Credits = ({ setScreen }) => {
-                console.log("Credits component rendered");
                 return (
                     <div className="container">
                         <h1>Créditos</h1>
@@ -672,7 +676,6 @@
             };
 
             const Result = ({ winner, name, setScreen }) => {
-                console.log("Result component rendered");
                 return (
                     <div className="container">
                         <h1>{winner === 'tie' ? '¡Empate!' : winner === name ? '¡Ganaste!' : 'Perdiste'}</h1>
