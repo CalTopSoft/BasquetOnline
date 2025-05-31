@@ -78,15 +78,15 @@ const updateGameState = () => {
             }
         }
 
-        // Actualizar posición del aro - SIEMPRE se mueve desde ronda 1
-        let hoopSpeed = 0.8; // Velocidad base
+        // Actualizar posición del aro - Solo se mueve desde la ronda 2
         if (room.round >= 2) {
-            hoopSpeed = room.round === 3 ? 1.5 : 1.2;
-        }
-        
-        room.hoopX += room.hoopDirection * hoopSpeed;
-        if (room.hoopX >= 450 || room.hoopX <= 150) {
-            room.hoopDirection *= -1;
+            let hoopSpeed = room.round === 3 ? 1.5 : 1.2;
+            room.hoopX += room.hoopDirection * hoopSpeed;
+            if (room.hoopX >= 450 || room.hoopX <= 150) {
+                room.hoopDirection *= -1;
+            }
+        } else {
+            room.hoopX = 300; // Mantener fijo en la ronda 1
         }
 
         // Actualizar posición del balón si está lanzado
@@ -246,6 +246,23 @@ const passTurn = async (room, roomName) => {
         room.turn = otherPlayer;
         room.timer = 8;
         room.lastTimerUpdate = Date.now();
+        
+        // Notificar cambio de turno
+        room.players.forEach(p => {
+            if (p.ws.readyState === WebSocket.OPEN) {
+                p.ws.send(JSON.stringify({
+                    type: 'update',
+                    scores: room.scores,
+                    turn: room.turn,
+                    ball: room.ball,
+                    timer: room.timer,
+                    hoopX: room.hoopX,
+                    round: room.round,
+                    attempts: room.attempts,
+                    players: room.players.map(player => player.name)
+                }));
+            }
+        });
     }
 };
 
