@@ -8,7 +8,6 @@
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/addons/p5.sound.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -195,9 +194,8 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Manejador global de sonidos para evitar recarga
+        // Manejador global de sonidos usando la API nativa de Audio
         const SoundManager = (() => {
-            let p5Instance = null;
             let backgroundSound = null;
             let bounceSound = null;
             let hoopHitSound = null;
@@ -209,24 +207,24 @@
             let isSoundPlaying = false;
 
             const init = () => {
-                if (!p5Instance) {
-                    p5Instance = new p5(() => {});
-                    backgroundSound = p5Instance.loadSound('sound/background.mp3');
-                    bounceSound = p5Instance.loadSound('sound/ball_bounce.mp3');
-                    hoopHitSound = p5Instance.loadSound('sound/hoop_hit.mp3');
-                    wheelsSound = p5Instance.loadSound('sound/wheels.mp3');
-                    scoreSound = p5Instance.loadSound('sound/score.mp3');
-                    scoreAddSound = p5Instance.loadSound('sound/score_add.mp3');
-                    winSound = p5Instance.loadSound('sound/win.mp3');
-                    loseSound = p5Instance.loadSound('sound/lose.mp3');
-                    console.log("SoundManager initialized and resources loaded");
-                }
+                backgroundSound = new Audio('sound/background.mp3');
+                backgroundSound.loop = true;
+                backgroundSound.volume = 0.3;
+
+                bounceSound = new Audio('sound/ball_bounce.mp3');
+                hoopHitSound = new Audio('sound/hoop_hit.mp3');
+                wheelsSound = new Audio('sound/wheels.mp3');
+                scoreSound = new Audio('sound/score.mp3');
+                scoreAddSound = new Audio('sound/score_add.mp3');
+                winSound = new Audio('sound/win.mp3');
+                loseSound = new Audio('sound/lose.mp3');
+
+                console.log("SoundManager initialized with native Audio API");
             };
 
             const playBackground = () => {
-                if (backgroundSound && backgroundSound.isLoaded() && !isSoundPlaying) {
-                    backgroundSound.setVolume(0.3);
-                    backgroundSound.loop();
+                if (backgroundSound && !isSoundPlaying) {
+                    backgroundSound.play().catch(err => console.error("Error playing background sound:", err));
                     isSoundPlaying = true;
                     console.log("Background sound started");
                 }
@@ -234,7 +232,8 @@
 
             const stopBackground = () => {
                 if (backgroundSound) {
-                    backgroundSound.stop();
+                    backgroundSound.pause();
+                    backgroundSound.currentTime = 0;
                     isSoundPlaying = false;
                     console.log("Background sound stopped");
                 }
@@ -251,18 +250,21 @@
                     lose: loseSound
                 };
                 const sound = soundMap[soundType];
-                if (sound && sound.isLoaded() && !sound.isPlaying()) {
-                    sound.play();
+                if (sound) {
+                    sound.currentTime = 0; // Reiniciar el sonido si ya está reproduciéndose
+                    sound.play().catch(err => console.error(`Error playing ${soundType} sound:`, err));
                     console.log(`${soundType} sound played`);
                 }
             };
 
             const cleanup = () => {
-                if (p5Instance) {
-                    p5Instance.remove();
-                    p5Instance = null;
-                }
                 stopBackground();
+                [bounceSound, hoopHitSound, wheelsSound, scoreSound, scoreAddSound, winSound, loseSound].forEach(sound => {
+                    if (sound) {
+                        sound.pause();
+                        sound.currentTime = 0;
+                    }
+                });
             };
 
             return { init, playBackground, stopBackground, playSound, cleanup };
@@ -274,11 +276,12 @@
             const [screen, setScreen] = useState('home');
             const [name, setName] = useState('Jugador1');
             const [room, setRoom] = useState(null);
+            const [players, setPlayers] = useState([]);
+            const [scores, setScores] = useState([0, 0]);
+            const [round, setRound] = useState(1);
+            const [turn, setTurn] = useState(0);
             const [gameStarted, setGameStarted] = useState(false);
             const [winner, setWinner] = useState(null);
-            const playersRef = useRef([]);
-            const scoresRef = useRef([0, 0]);
-            const roundRef = useRef(1);
             const countdownRef = useRef(0);
             const rankingsRef = useRef([]);
             const roomStatusRef = useRef({ room1: { players: 0 }, room2: { players: 0 } });
@@ -287,13 +290,11 @@
             const lastBallStateRef = useRef(null);
 
             useEffect(() => {
-                // Inicializar SoundManager
                 SoundManager.init();
 
-                // Conectar al servidor WebSocket
                 const wsUrl = window.location.hostname === 'localhost'
                     ? 'ws://localhost:8080'
-                    : 'https://basquetonline.onrender.com'; // Reemplaza con tu URL de Render
+                    : 'https://basquetonline.onrender.com';
                 wsRef.current = new WebSocket(wsUrl);
 
                 wsRef.current.onopen = () => {
@@ -308,29 +309,30 @@
 
                     if (data.type === 'rooms') {
                         roomStatusRef.current = data.rooms;
-                        setScreen(screen => screen); // Forzar actualización de la pantalla de salas
+                        setScreen(screen => screen);
                     }
 
                     if (data.type === 'joined') {
                         setRoom(data.room);
-                        playersRef.current = data.players;
+                        setPlayers(data.players);
                         playerIndexRef.current = data.playerIndex;
                         setScreen('gameplay');
                     }
 
                     if (data.type === 'start') {
                         setGameStarted(true);
-                        playersRef.current = data.players;
-                        scoresRef.current = data.scores;
-                        roundRef.current = data.round;
+                        setPlayers(data.players);
+                        setScores(data.scores);
+                        setRound(data.round);
+                        setTurn(data.turn);
                     }
 
                     if (data.type === 'update') {
-                        scoresRef.current = data.scores;
-                        roundRef.current = data.round;
-                        playersRef.current = data.players;
+                        setScores(data.scores);
+                        setPlayers(data.players);
+                        setTurn(data.turn);
+                        setRound(data.round);
 
-                        // Reproducir sonidos según el estado del balón
                         if (lastBallStateRef.current && data.ball) {
                             if (
                                 lastBallStateRef.current.thrown &&
@@ -367,7 +369,7 @@
                     }
 
                     if (data.type === 'newRound') {
-                        roundRef.current = data.round;
+                        setRound(data.round);
                     }
 
                     if (data.type === 'end') {
@@ -463,7 +465,6 @@
 
                 const sketchRef = useRef(null);
                 const p5Instance = useRef(null);
-                const turnRef = useRef(0);
                 const timerRef = useRef(8);
                 const ballRef = useRef({ x: 300, y: 370, r: 30, vx: 0, vy: 0, thrown: false, rotation: 0 });
                 const hoopXRef = useRef(300);
@@ -538,7 +539,7 @@
                     };
 
                     p.mousePressed = () => {
-                        if (gameStarted && turnRef.current === playerIndexRef.current && !ballRef.current.thrown && attemptsRef.current[playerIndexRef.current] < 5) {
+                        if (gameStarted && turn === playerIndexRef.current && !ballRef.current.thrown && attemptsRef.current[playerIndexRef.current] < 5) {
                             if (p.mouseX >= ballRef.current.x - ballRef.current.r && p.mouseX <= ballRef.current.x + ballRef.current.r && 
                                 p.mouseY >= ballRef.current.y - ballRef.current.r && p.mouseY <= ballRef.current.y + ballRef.current.r) {
                                 dragging = true;
@@ -597,7 +598,6 @@
                         if (data.type === 'update') {
                             ballRef.current = { ...ballRef.current, ...data.ball };
                             hoopXRef.current = data.hoopX;
-                            turnRef.current = data.turn;
                             timerRef.current = data.timer;
                             attemptsRef.current = data.attempts;
                         }
@@ -618,19 +618,19 @@
                     <div className="gameplay">
                         <div className="game-container">
                             <div ref={sketchRef}></div>
-                            <div className="score">{scoresRef.current[0]} | {scoresRef.current[1]}</div>
-                            <div className="turn">Turno: {playersRef.current[turnRef.current] || 'Esperando...'}</div>
-                            <div className="round">Ronda {roundRef.current}/3</div>
-                            {playersRef.current[0] && (
+                            <div className="score">{scores[0]} | {scores[1]}</div>
+                            <div className="turn">Turno: {players[turn] || 'Esperando...'}</div>
+                            <div className="round">Ronda {round}/3</div>
+                            {players[0] && (
                                 <>
                                     <img src="img/iconosplayer/player1.png" alt="Player 1" className="player-icon player1" />
-                                    <div className="player-name player1-name">{playersRef.current[0]}</div>
+                                    <div className="player-name player1-name">{players[0]}</div>
                                 </>
                             )}
-                            {playersRef.current[1] && (
+                            {players[1] && (
                                 <>
                                     <img src="img/iconosplayer/player2.png" alt="Player 2" className="player-icon player2" />
-                                    <div className="player-name player2-name">{playersRef.current[1]}</div>
+                                    <div className="player-name player2-name">{players[1]}</div>
                                 </>
                             )}
                             <div className="turn-indicator" style={{ display: 'none' }}>Modo Edición - Sin Turnos</div>
