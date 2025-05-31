@@ -277,7 +277,6 @@
             const [room, setRoom] = useState(null);
             const [gameStarted, setGameStarted] = useState(false);
             const [winner, setWinner] = useState(null);
-            const [updateTrigger, setUpdateTrigger] = useState(0);
             const playersRef = useRef([]);
             const scoresRef = useRef([0, 0]);
             const roundRef = useRef(1);
@@ -322,7 +321,6 @@
                         scoresRef.current = data.scores;
                         roundRef.current = data.round;
                         turnRef.current = data.turn;
-                        setUpdateTrigger(prev => prev + 1);
                     }
 
                     if (data.type === 'update') {
@@ -364,12 +362,10 @@
                             }
                         }
                         lastBallStateRef.current = { ...data.ball, scores: [...data.scores] };
-                        setUpdateTrigger(prev => prev + 1);
                     }
 
                     if (data.type === 'newRound') {
                         roundRef.current = data.round;
-                        setUpdateTrigger(prev => prev + 1);
                     }
 
                     if (data.type === 'end') {
@@ -432,7 +428,7 @@
                         <br />
                         <button onClick={() => setScreen('rooms')}>Entrar a Partida</button>
                         <button onClick={() => setScreen('rankings')}>Rankings</button>
-                        <button onClick={() => setScreen('credits')}>Créditos v18.0</button>
+                        <button onClick={() => setScreen('credits')}>Créditos v1.0</button>
                     </div>
                 );
             };
@@ -478,6 +474,7 @@
                 const hoopXRef = useRef(300);
                 const isMounted = useRef(false);
                 const attemptsRef = useRef([0, 0]);
+                const updateCounterRef = useRef(0);
 
                 const setupSketch = (p) => {
                     let ballImg, hoopBaseImg, hoopRingImg;
@@ -606,6 +603,13 @@
                             hoopXRef.current = data.hoopX;
                             timerRef.current = data.timer;
                             attemptsRef.current = data.attempts;
+
+                            // Limitar la frecuencia de updates para la UI
+                            updateCounterRef.current += 1;
+                            if (updateCounterRef.current % 5 === 0) {
+                                // Forzar un re-render cada 5 updates (aproximadamente cada 100ms)
+                                sketchRef.current.dispatchEvent(new Event('update'));
+                            }
                         }
                     };
 
