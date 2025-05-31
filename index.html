@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Baloncesto Multijugador - Modo Online</title>
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/addons/p5.sound.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #87CEEB;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #root {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            text-align: center;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+        .gameplay {
+            width: 750px;
+            height: 550px;
+            position: relative;
+            overflow: hidden;
+            background: url('img/fondo/background.png') no-repeat center center;
+            background-size: cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .game-container {
+            position: relative;
+            width: 600px;
+            height: 400px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        input {
+            padding: 10px;
+            font-size: 16px;
+            margin: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        .score {
+            position: absolute;
+            top: 380px;
+            left: 220px;
+            font-size: 20px;
+            color: rgb(0, 16, 243);
+            text-shadow: 1px 1px 2px black;
+        }
+        .turn {
+            position: absolute;
+            top: -65px;
+            right: -170px;
+            font-size: 16px;
+            color: #fff;
+            padding: 8px 16px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            text-shadow: 2px 2px 4px #000;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            font-weight: bold;
+            letter-spacing: 1px;
+            transition: transform 0.3s ease, background 0.3s ease;
+        }
+        .turn:hover {
+            transform: scale(1.05);
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .round {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 18px;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+        }
+        .timer {
+            position: absolute;
+            top: 20px;
+            right: 15px;
+            font-size: 20px;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+            width: 120px;
+            height: 10px;
+            background-color: #f00;
+            border-radius: 5px;
+        }
+        .timer-bar {
+            height: 100%;
+            background-color: #0f0;
+            transition: width 1s linear;
+            border-radius: 5px;
+        }
+        .countdown {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            color: white;
+            text-shadow: 2px 2px 4px black;
+        }
+        .player-icon {
+            position: absolute;
+            top: -65px;
+            width: 60px;
+            height: 60px;
+        }
+        .player1 { left: calc(50% - 150px); }
+        .player2 { left: calc(50% + 100px); }
+        .player-name {
+            position: absolute;
+            top: -5px;
+            font-size: 20px;
+            color: rgb(219, 0, 172);
+            text-shadow: 1px 1px 2px black;
+        }
+        .player1-name { left: calc(50% - 165px); }
+        .player2-name { left: calc(50% + 85px); }
+        .turn-indicator {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 16px;
+            color: yellow;
+            text-shadow: 1px 1px 2px black;
+        }
+        .room {
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .height-limit {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: rgba(255, 255, 0, 0.3);
+            border-top: 2px dashed rgba(255, 255, 0, 0.6);
+        }
+        .waiting-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: white;
+            text-shadow: 2px 2px 4px black;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const App = () => {
+            console.log("App component rendered");
+
+            const [screen, setScreen] = useState('home');
+            const [name, setName] = useState('Jugador1');
+            const [room, setRoom] = useState(null);
+            const [players, setPlayers] = useState([]);
+            const [scores, setScores] = useState([0, 0]);
+            const [round, setRound] = useState(1);
+            const [countdown, setCountdown] = useState(0);
+            const [gameStarted, setGameStarted] = useState(false);
+            const [rankings, setRankings] = useState([]);
+            const [winner, setWinner] = useState(null);
+            const [roomStatus, setRoomStatus] = useState({ room1: { players: 0 }, room2: { players: 0 } });
+            const [playerIndex, setPlayerIndex] = useState(null);
+            const wsRef = useRef(null);
+
+            useEffect(() => {
+                // Conectar al servidor WebSocket
+                const wsUrl = window.location.hostname === 'localhost'
+                    ? 'ws://localhost:8080'
+                    : 'https://basquetonline.onrender.com'; // Reemplaza con tu URL de Render
+                wsRef.current = new WebSocket(wsUrl);
+
+                wsRef.current.onopen = () => {
+                    console.log("Connected to WebSocket server");
+                    // Solicitar el estado de las salas al conectar
+                    wsRef.current.send(JSON.stringify({ type: 'getRooms' }));
+                    wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
+                };
+
+                wsRef.current.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+
+                    if (data.type === 'rooms') {
+                        setRoomStatus(data.rooms);
+                    }
+
+                    if (data.type === 'joined') {
+                        setRoom(data.room);
+                        setPlayers(data.players);
+                        setPlayerIndex(data.playerIndex);
+                        setScreen('gameplay');
+                    }
+
+                    if (data.type === 'start') {
+                        setGameStarted(true);
+                        setPlayers(data.players);
+                        setScores(data.scores);
+                        setRound(data.round);
+                    }
+
+                    if (data.type === 'update') {
+                        setScores(data.scores);
+                        setRound(data.round);
+                        setPlayers(data.players);
+                    }
+
+                    if (data.type === 'newRound') {
+                        setRound(data.round);
+                    }
+
+                    if (data.type === 'end') {
+                        setWinner(data.winner);
+                        setScreen('result');
+                        setGameStarted(false);
+                    }
+
+                    if (data.type === 'rankings') {
+                        setRankings(data.rankings);
+                    }
+
+                    if (data.type === 'full') {
+                        alert("La sala está llena. Por favor, elige otra sala.");
+                        setScreen('rooms');
+                    }
+                };
+
+                wsRef.current.onclose = () => {
+                    console.log("Disconnected from WebSocket server");
+                };
+
+                return () => {
+                    if (wsRef.current) {
+                        wsRef.current.close();
+                    }
+                };
+            }, []);
+
+            const Home = ({ setScreen, name, setName }) => {
+                console.log("Home component rendered");
+                return (
+                    <div className="container">
+                        <h1>Juego de Baloncesto</h1>
+                        <input
+                            type="text"
+                            placeholder="Ingresa tu nombre"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                        />
+                        <br />
+                        <button onClick={() => setScreen('rooms')}>Entrar a Partida</button>
+                        <button onClick={() => setScreen('rankings')}>Rankings</button>
+                        <button onClick={() => setScreen('credits')}>Créditos</button>
+                    </div>
+                );
+            };
+
+            const Rooms = ({ setScreen }) => {
+                console.log("Rooms component rendered");
+
+                const joinRoom = (roomName) => {
+                    if (wsRef.current) {
+                        wsRef.current.send(JSON.stringify({ type: 'join', room: roomName, name }));
+                    }
+                };
+
+                return (
+                    <div className="container">
+                        <h1>Salas</h1>
+                        <div className="room">
+                            <span>Sala 1 ({roomStatus.room1.players}/2)</span>
+                            <button 
+                                onClick={() => joinRoom('room1')} 
+                                disabled={roomStatus.room1.players >= 2}
+                            >
+                                Entrar
+                            </button>
+                        </div>
+                        <div className="room">
+                            <span>Sala 2 ({roomStatus.room2.players}/2)</span>
+                            <button 
+                                onClick={() => joinRoom('room2')} 
+                                disabled={roomStatus.room2.players >= 2}
+                            >
+                                Entrar
+                            </button>
+                        </div>
+                        <button onClick={() => setScreen('home')}>Volver</button>
+                    </div>
+                );
+            };
+
+            const Gameplay = ({ players, scores, round, countdown, gameStarted, name }) => {
+                console.log("Gameplay component rendered", { gameStarted });
+
+                const sketchRef = useRef(null);
+                const p5Instance = useRef(null);
+                const turnRef = useRef(0);
+                const timerRef = useRef(8);
+                const ballRef = useRef({ x: 300, y: 370, r: 30, vx: 0, vy: 0, thrown: false, rotation: 0 });
+                const hoopXRef = useRef(300);
+                const backgroundSoundRef = useRef(null);
+                const bounceSoundRef = useRef(null);
+                const hoopHitSoundRef = useRef(null);
+                const wheelsSoundRef = useRef(null);
+                const scoreSoundRef = useRef(null);
+                const scoreAddSoundRef = useRef(null);
+                const isSoundPlaying = useRef(false);
+                const isMounted = useRef(false);
+                const attemptsRef = useRef([0, 0]);
+
+                const setupSketch = (p) => {
+                    let ballImg, hoopBaseImg, hoopRingImg;
+                    let dragging = false;
+                    let dragStartX, dragStartY;
+                    let ballScale = 1;
+
+                    p.preload = () => {
+                        console.log("Preload called");
+                        try {
+                            ballImg = p.loadImage('img/balon/ball.png');
+                            hoopBaseImg = p.loadImage('img/arco/hoop_base.png');
+                            hoopRingImg = p.loadImage('img/arco/hoop_ring.png');
+                            backgroundSoundRef.current = p.loadSound('sound/background.mp3');
+                            bounceSoundRef.current = p.loadSound('sound/ball_bounce.mp3');
+                            hoopHitSoundRef.current = p.loadSound('sound/hoop_hit.mp3');
+                            wheelsSoundRef.current = p.loadSound('sound/wheels.mp3');
+                            scoreSoundRef.current = p.loadSound('sound/score.mp3');
+                            scoreAddSoundRef.current = p.loadSound('sound/score_add.mp3');
+                            console.log("Resources loaded successfully");
+                        } catch (error) {
+                            console.error("Error loading resources:", error);
+                        }
+                    };
+
+                    p.setup = () => {
+                        console.log("Setup called");
+                        p.createCanvas(600, 400);
+                        p.frameRate(50);
+                    };
+
+                    p.draw = () => {
+                        p.clear();
+
+                        // Actualizar el estado del juego desde el servidor
+                        ballRef.current.x = ballRef.current.x || 300;
+                        ballRef.current.y = ballRef.current.y || 370;
+                        hoopXRef.current = hoopXRef.current || 300;
+
+                        if (backgroundSoundRef.current && backgroundSoundRef.current.isLoaded() && !isSoundPlaying.current) {
+                            backgroundSoundRef.current.setVolume(0.3);
+                            backgroundSoundRef.current.loop();
+                            isSoundPlaying.current = true;
+                            console.log("Background sound started");
+                        }
+
+                        const hoopBaseWidth = 240;
+                        const hoopBaseHeight = hoopBaseWidth * (3464 / 2598);
+                        const hoopRingWidth = 75;
+                        const hoopRingHeight = hoopRingWidth * (499 / 788);
+
+                        if (ballImg && hoopBaseImg && hoopRingImg) {
+                            p.image(hoopBaseImg, hoopXRef.current - hoopBaseWidth / 1.98, 40, hoopBaseWidth, hoopBaseHeight);
+                            ballScale = p.map(ballRef.current.y, 370, 113, 1, 0.8);
+                            ballScale = p.constrain(ballScale, 0.8, 1);
+                            const drawRotatedBall = () => {
+                                p.push();
+                                p.translate(ballRef.current.x, ballRef.current.y);
+                                p.rotate(ballRef.current.rotation || 0);
+                                p.image(ballImg, -ballRef.current.r * ballScale, -ballRef.current.r * ballScale, ballRef.current.r * 2 * ballScale, ballRef.current.r * 2 * ballScale);
+                                p.pop();
+                            };
+
+                            if (ballRef.current.vy > 0) {
+                                drawRotatedBall();
+                                p.image(hoopRingImg, hoopXRef.current - hoopRingWidth / 2.2, 113, hoopRingWidth, hoopRingHeight);
+                            } else {
+                                p.image(hoopRingImg, hoopXRef.current - hoopRingWidth / 2.2, 113, hoopRingWidth, hoopRingHeight);
+                                drawRotatedBall();
+                            }
+                        }
+
+                        if (gameStarted) {
+                            const timerWidth = p.map(timerRef.current, 0, 8, 0, 100);
+                            p.noStroke();
+                            p.fill(255, 0, 0);
+                            p.rect(300, 10, 100, 10);
+                            p.fill(0, 255, 0);
+                            p.rect(300, 10, timerWidth, 10);
+                        }
+                    };
+
+                    p.mousePressed = () => {
+                        if (gameStarted && turnRef.current === playerIndex && !ballRef.current.thrown && attemptsRef.current[playerIndex] < 5) {
+                            if (p.mouseX >= ballRef.current.x - ballRef.current.r && p.mouseX <= ballRef.current.x + ballRef.current.r && 
+                                p.mouseY >= ballRef.current.y - ballRef.current.r && p.mouseY <= ballRef.current.y + ballRef.current.r) {
+                                dragging = true;
+                                dragStartX = p.mouseX;
+                                dragStartY = p.mouseY;
+                            }
+                        }
+                    };
+
+                    p.mouseReleased = () => {
+                        if (dragging) {
+                            const dx = p.mouseX - dragStartX;
+                            const dy = p.mouseY - dragStartY;
+                            const power = Math.min(Math.max(Math.sqrt(dx * dx + dy * dy) / 10, 0.2), 15);
+                            const angle = Math.atan2(dy, dx);
+                            const vx = power * Math.cos(angle);
+                            const vy = power * Math.sin(angle);
+
+                            // Enviar la acción al servidor
+                            if (wsRef.current) {
+                                wsRef.current.send(JSON.stringify({
+                                    type: 'shot',
+                                    room: room,
+                                    playerIndex: playerIndex,
+                                    ballVX: vx,
+                                    ballVY: vy
+                                }));
+                            }
+
+                            dragging = false;
+                        }
+                    };
+
+                    p.mouseDragged = () => {
+                        if (dragging) console.log("Dragging in progress...");
+                    };
+                };
+
+                // Inicializar el sketch solo una vez
+                useEffect(() => {
+                    if (!isMounted.current && sketchRef.current) {
+                        p5Instance.current = new p5(setupSketch, sketchRef.current);
+                        isMounted.current = true;
+                    }
+
+                    return () => {
+                        if (p5Instance.current) {
+                            p5Instance.current.remove();
+                            p5Instance.current = null;
+                            isMounted.current = false;
+                        }
+                        if (backgroundSoundRef.current) {
+                            backgroundSoundRef.current.stop();
+                            console.log("Background sound stopped");
+                        }
+                        if (bounceSoundRef.current) bounceSoundRef.current.stop();
+                        if (hoopHitSoundRef.current) hoopHitSoundRef.current.stop();
+                        if (wheelsSoundRef.current) wheelsSoundRef.current.stop();
+                        if (scoreSoundRef.current) scoreSoundRef.current.stop();
+                        if (scoreAddSoundRef.current) scoreAddSoundRef.current.stop();
+                    };
+                }, []);
+
+                // Escuchar actualizaciones del servidor
+                useEffect(() => {
+                    const handleMessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'update') {
+                            ballRef.current = { ...ballRef.current, ...data.ball };
+                            hoopXRef.current = data.hoopX;
+                            turnRef.current = data.turn;
+                            timerRef.current = data.timer;
+                            attemptsRef.current = data.attempts;
+                            setScores(data.scores);
+                            setRound(data.round);
+                            setPlayers(data.players);
+
+                            // Reproducir sonidos según el estado
+                            if (data.ball.thrown && data.ball.vy === 0 && data.ball.vx === 0 && data.ball.y === 370) {
+                                if (bounceSoundRef.current && bounceSoundRef.current.isLoaded()) {
+                                    bounceSoundRef.current.play();
+                                }
+                            }
+                        }
+                    };
+
+                    if (wsRef.current) {
+                        wsRef.current.addEventListener('message', handleMessage);
+                    }
+
+                    return () => {
+                        if (wsRef.current) {
+                            wsRef.current.removeEventListener('message', handleMessage);
+                        }
+                    };
+                }, []);
+
+                return (
+                    <div className="gameplay">
+                        <div className="game-container">
+                            <div ref={sketchRef}></div>
+                            <div className="score">{scores[0]} | {scores[1]}</div>
+                            <div className="turn">Turno: {players[turnRef.current] || 'Esperando...'}</div>
+                            <div className="round">Ronda {round}/3</div>
+                            {players[0] && (
+                                <>
+                                    <img src="img/iconosplayer/player1.png" alt="Player 1" className="player-icon player1" />
+                                    <div className="player-name player1-name">{players[0]}</div>
+                                </>
+                            )}
+                            {players[1] && (
+                                <>
+                                    <img src="img/iconosplayer/player2.png" alt="Player 2" className="player-icon player2" />
+                                    <div className="player-name player2-name">{players[1]}</div>
+                                </>
+                            )}
+                            <div className="turn-indicator" style={{ display: 'none' }}>Modo Edición - Sin Turnos</div>
+                            {gameStarted && <div className="timer"><div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div></div>}
+                            {countdown > 0 && <div className="countdown">{countdown}</div>}
+                            {!gameStarted && <div className="waiting-message">Esperando al segundo jugador...</div>}
+                        </div>
+                    </div>
+                );
+            };
+
+            const Rankings = ({ rankings, setScreen }) => {
+                console.log("Rankings component rendered");
+                return (
+                    <div className="container">
+                        <h1>Rankings</h1>
+                        {rankings.map((entry, index) => (
+                            <div key={index}>
+                                {index + 1}. {entry.name}: {entry.score}
+                            </div>
+                        ))}
+                        <button onClick={() => setScreen('home')}>Volver</button>
+                    </div>
+                );
+            };
+
+            const Credits = ({ setScreen }) => {
+                console.log("Credits component rendered");
+                return (
+                    <div className="container">
+                        <h1>Créditos</h1>
+                        <p>Juego creado por [Tu Nombre]</p>
+                        <p>Arte y diseño: [Tu Nombre]</p>
+                        <p>Sonidos: SoundJay.com</p>
+                        <p>Gracias a xAI por la asistencia</p>
+                        <button onClick={() => setScreen('home')}>Volver</button>
+                    </div>
+                );
+            };
+
+            const Result = ({ winner, name, setScreen }) => {
+                console.log("Result component rendered");
+                const sketchRef = useRef(null);
+                const p5Instance = useRef(null);
+                const winSoundRef = useRef(null);
+                const loseSoundRef = useRef(null);
+
+                useEffect(() => {
+                    const sketch = (p) => {
+                        p.preload = () => {
+                            console.log("Preload called for Result screen");
+                            try {
+                                winSoundRef.current = p.loadSound('sound/win.mp3');
+                                loseSoundRef.current = p.loadSound('sound/lose.mp3');
+                                console.log("Result sounds loaded successfully");
+                            } catch (error) {
+                                console.error("Error loading result sounds:", error);
+                            }
+                        };
+
+                        p.setup = () => {
+                            console.log("Setup called for Result screen");
+                            p.noCanvas();
+                            try {
+                                if (winner === name && winSoundRef.current) {
+                                    winSoundRef.current.play();
+                                    console.log("Playing win sound");
+                                } else if (winner !== name && winner !== 'tie' && loseSoundRef.current) {
+                                    loseSoundRef.current.play();
+                                    console.log("Playing lose sound");
+                                }
+                            } catch (error) {
+                                console.error("Error playing result sounds:", error);
+                            }
+                        };
+                    };
+
+                    p5Instance.current = new p5(sketch, sketchRef.current);
+
+                    return () => {
+                        if (p5Instance.current) p5Instance.current.remove();
+                        if (winSoundRef.current) winSoundRef.current.stop();
+                        if (loseSoundRef.current) loseSoundRef.current.stop();
+                    };
+                }, [winner, name]);
+
+                return (
+                    <div className="container">
+                        <div ref={sketchRef}></div>
+                        <h1>{winner === 'tie' ? '¡Empate!' : winner === name ? '¡Ganaste!' : 'Perdiste'}</h1>
+                        <button onClick={() => setScreen('rooms')}>Volver</button>
+                    </div>
+                );
+            };
+
+            return (
+                <div>
+                    {screen === 'home' && <Home setScreen={setScreen} name={name} setName={setName} />}
+                    {screen === 'rooms' && <Rooms setScreen={setScreen} />}
+                    {screen === 'gameplay' && (
+                        <Gameplay
+                            players={players}
+                            scores={scores}
+                            round={round}
+                            countdown={countdown}
+                            gameStarted={gameStarted}
+                            name={name}
+                        />
+                    )}
+                    {screen === 'rankings' && <Rankings rankings={rankings} setScreen={setScreen} />}
+                    {screen === 'credits' && <Credits setScreen={setScreen} />}
+                    {screen === 'result' && <Result winner={winner} name={name} setScreen={setScreen} />}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
