@@ -204,6 +204,7 @@
             let winSound = null;
             let loseSound = null;
             let isSoundPlaying = false;
+            let soundPromises = [];
 
             const init = () => {
                 backgroundSound = new Audio('sound/background.mp3');
@@ -218,12 +219,19 @@
                 winSound = new Audio('sound/win.mp3');
                 loseSound = new Audio('sound/lose.mp3');
 
+                // Preload sounds
+                [backgroundSound, bounceSound, hoopHitSound, wheelsSound, scoreSound, scoreAddSound, winSound, loseSound].forEach(sound => {
+                    sound.load();
+                });
+
                 console.log("SoundManager initialized with native Audio API");
             };
 
             const playBackground = () => {
                 if (backgroundSound && !isSoundPlaying) {
-                    backgroundSound.play().catch(err => console.error("Error playing background sound:", err));
+                    const playPromise = backgroundSound.play();
+                    soundPromises.push(playPromise);
+                    playPromise.catch(err => console.error("Error playing background sound:", err));
                     isSoundPlaying = true;
                     console.log("Background sound started");
                 }
@@ -251,7 +259,9 @@
                 const sound = soundMap[soundType];
                 if (sound) {
                     sound.currentTime = 0;
-                    sound.play().catch(err => console.error(`Error playing ${soundType} sound:`, err));
+                    const playPromise = sound.play();
+                    soundPromises.push(playPromise);
+                    playPromise.catch(err => console.error(`Error playing ${soundType} sound:`, err));
                     console.log(`${soundType} sound played`);
                 }
             };
@@ -263,6 +273,10 @@
                         sound.pause();
                         sound.currentTime = 0;
                     }
+                });
+                // Wait for all sound promises to resolve
+                Promise.all(soundPromises).then(() => {
+                    soundPromises = [];
                 });
             };
 
@@ -277,10 +291,10 @@
             const [room, setRoom] = useState(null);
             const [gameStarted, setGameStarted] = useState(false);
             const [winner, setWinner] = useState(null);
-            const playersRef = useRef([]);
-            const scoresRef = useRef([0, 0]);
-            const roundRef = useRef(1);
-            const turnRef = useRef(0);
+            const [players, setPlayers] = useState([]);
+            const [scores, setScores] = useState([0, 0]);
+            const [round, setRound] = useState(1);
+            const [turn, setTurn] = useState(0);
             const countdownRef = useRef(0);
             const rankingsRef = useRef([]);
             const roomStatusRef = useRef({ room1: { players: 0 }, room2: { players: 0 } });
@@ -300,6 +314,11 @@
                     wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
                 };
 
+                wsRef.current.onerror = (error) => {
+                    console.error("WebSocket error:", error);
+                    alert("No se pudo conectar al servidor. Por favor, verifica la conexión y vuelve a intentarlo.");
+                };
+
                 wsRef.current.onmessage = (event) => {
                     const data = JSON.parse(event.data);
 
@@ -310,24 +329,24 @@
 
                     if (data.type === 'joined') {
                         setRoom(data.room);
-                        playersRef.current = data.players;
+                        setPlayers(data.players);
                         playerIndexRef.current = data.playerIndex;
                         setScreen('gameplay');
                     }
 
                     if (data.type === 'start') {
                         setGameStarted(true);
-                        playersRef.current = data.players;
-                        scoresRef.current = data.scores;
-                        roundRef.current = data.round;
-                        turnRef.current = data.turn;
+                        setPlayers(data.players);
+                        setScores(data.scores);
+                        setRound(data.round);
+                        setTurn(data.turn);
                     }
 
                     if (data.type === 'update') {
-                        scoresRef.current = data.scores;
-                        roundRef.current = data.round;
-                        playersRef.current = data.players;
-                        turnRef.current = data.turn;
+                        setScores(data.scores);
+                        setRound(data.round);
+                        setPlayers(data.players);
+                        setTurn(data.turn);
 
                         if (lastBallStateRef.current && data.ball) {
                             if (
@@ -365,7 +384,8 @@
                     }
 
                     if (data.type === 'newRound') {
-                        roundRef.current = data.round;
+                        setRound(data.round);
+                        setTurn(data.turn);
                     }
 
                     if (data.type === 'end') {
@@ -392,6 +412,7 @@
                 wsRef.current.onclose = () => {
                     console.log("Disconnected from WebSocket server");
                     SoundManager.stopBackground();
+                    alert("Se perdió la conexión con el servidor. Por favor, recarga la página.");
                 };
 
                 return () => {
@@ -428,7 +449,7 @@
                         <br />
                         <button onClick={() => setScreen('rooms')}>Entrar a Partida</button>
                         <button onClick={() => setScreen('rankings')}>Rankings</button>
-                        <button onClick={() => setScreen('credits')}>Créditos v1.0</button>
+                        <button onClick={() => setScreen('credits')}>Créditos v18.0</button>
                     </div>
                 );
             };
@@ -542,7 +563,7 @@
                     };
 
                     p.mousePressed = () => {
-                        if (gameStarted && turnRef.current === playerIndexRef.current && !ballRef.current.thrown && attemptsRef.current[playerIndexRef.current] < 5) {
+                        if (gameStarted && turn === playerIndexRef.current && !ballRef.current.thrown && attemptsRef.current[playerIndexRef.current] < 5) {
                             if (p.mouseX >= ballRef.current.x - ballRef.current.r && p.mouseX <= ballRef.current.x + ballRef.current.r && 
                                 p.mouseY >= ballRef.current.y - ballRef.current.r && p.mouseY <= ballRef.current.y + ballRef.current.r) {
                                 dragging = true;
@@ -607,7 +628,6 @@
                             // Limitar la frecuencia de updates para la UI
                             updateCounterRef.current += 1;
                             if (updateCounterRef.current % 5 === 0) {
-                                // Forzar un re-render cada 5 updates (aproximadamente cada 100ms)
                                 sketchRef.current.dispatchEvent(new Event('update'));
                             }
                         }
@@ -628,19 +648,19 @@
                     <div className="gameplay">
                         <div className="game-container">
                             <div ref={sketchRef}></div>
-                            <div className="score">{scoresRef.current[0]} | {scoresRef.current[1]}</div>
-                            <div className="turn">Turno: {playersRef.current[turnRef.current] || 'Esperando...'}</div>
-                            <div className="round">Ronda {roundRef.current}/3</div>
-                            {playersRef.current[0] && (
+                            <div className="score">{scores[0]} | {scores[1]}</div>
+                            <div className="turn">Turno: {players[turn] || 'Esperando...'}</div>
+                            <div className="round">Ronda {round}/3</div>
+                            {players[0] && (
                                 <>
                                     <img src="img/iconosplayer/player1.png" alt="Player 1" className="player-icon player1" />
-                                    <div className="player-name player1-name">{playersRef.current[0]}</div>
+                                    <div className="player-name player1-name">{players[0]}</div>
                                 </>
                             )}
-                            {playersRef.current[1] && (
+                            {players[1] && (
                                 <>
                                     <img src="img/iconosplayer/player2.png" alt="Player 2" className="player-icon player2" />
-                                    <div className="player-name player2-name">{playersRef.current[1]}</div>
+                                    <div className="player-name player2-name">{players[1]}</div>
                                 </>
                             )}
                             <div className="turn-indicator" style={{ display: 'none' }}>Modo Edición - Sin Turnos</div>
