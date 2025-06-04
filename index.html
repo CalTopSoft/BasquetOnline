@@ -187,6 +187,14 @@
             color: white;
             text-shadow: 2px 2px 4px black;
         }
+        .attempts {
+            position: absolute;
+            top: 40px;
+            left: 20px;
+            font-size: 16px;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+        }
     </style>
 </head>
 <body>
@@ -208,15 +216,22 @@
             const init = () => {
                 backgroundSound = new Audio('sound/background.mp3');
                 backgroundSound.loop = true;
-                backgroundSound.volume = 0.3;
+                backgroundSound.volume = 0.2;
 
                 bounceSound = new Audio('sound/ball_bounce.mp3');
+                bounceSound.volume = 0.5;
                 hoopHitSound = new Audio('sound/hoop_hit.mp3');
+                hoopHitSound.volume = 0.4;
                 wheelsSound = new Audio('sound/wheels.mp3');
+                wheelsSound.volume = 0.3;
                 scoreSound = new Audio('sound/score.mp3');
+                scoreSound.volume = 0.6;
                 scoreAddSound = new Audio('sound/score_add.mp3');
+                scoreAddSound.volume = 0.6;
                 winSound = new Audio('sound/win.mp3');
+                winSound.volume = 0.7;
                 loseSound = new Audio('sound/lose.mp3');
+                loseSound.volume = 0.7;
 
                 console.log("SoundManager initialized with native Audio API");
             };
@@ -277,10 +292,11 @@
             const [room, setRoom] = useState(null);
             const [gameStarted, setGameStarted] = useState(false);
             const [winner, setWinner] = useState(null);
-            const playersRef = useRef([]);
-            const scoresRef = useRef([0, 0]);
-            const roundRef = useRef(1);
-            const turnRef = useRef(0);
+            const [players, setPlayers] = useState([]);
+            const [scores, setScores] = useState([0, 0]);
+            const [round, setRound] = useState(1);
+            const [turn, setTurn] = useState(0);
+            const [attempts, setAttempts] = useState([0, 0]);
             const countdownRef = useRef(0);
             const rankingsRef = useRef([]);
             const roomStatusRef = useRef({ room1: { players: 0 }, room2: { players: 0 } });
@@ -310,24 +326,26 @@
 
                     if (data.type === 'joined') {
                         setRoom(data.room);
-                        playersRef.current = data.players;
+                        setPlayers(data.players);
                         playerIndexRef.current = data.playerIndex;
                         setScreen('gameplay');
                     }
 
                     if (data.type === 'start') {
                         setGameStarted(true);
-                        playersRef.current = data.players;
-                        scoresRef.current = data.scores;
-                        roundRef.current = data.round;
-                        turnRef.current = data.turn;
+                        setPlayers(data.players);
+                        setScores(data.scores);
+                        setRound(data.round);
+                        setTurn(data.turn);
+                        setAttempts(data.attempts);
                     }
 
                     if (data.type === 'update') {
-                        scoresRef.current = data.scores;
-                        roundRef.current = data.round;
-                        playersRef.current = data.players;
-                        turnRef.current = data.turn;
+                        setScores(data.scores);
+                        setRound(data.round);
+                        setPlayers(data.players);
+                        setTurn(data.turn);
+                        setAttempts(data.attempts);
 
                         if (lastBallStateRef.current && data.ball) {
                             if (
@@ -348,7 +366,8 @@
                             }
                             if (
                                 Math.abs(lastBallStateRef.current.x - data.hoopX) > 75 &&
-                                Math.abs(data.ball.x - data.hoopX) <= 75
+                                Math.abs(data.ball.x - data.hoopX) <= 75 &&
+                                data.round >= 2
                             ) {
                                 SoundManager.playSound('wheels');
                             }
@@ -365,7 +384,9 @@
                     }
 
                     if (data.type === 'newRound') {
-                        roundRef.current = data.round;
+                        setRound(data.round);
+                        setTurn(data.turn);
+                        setAttempts(data.attempts);
                     }
 
                     if (data.type === 'end') {
@@ -473,8 +494,6 @@
                 const ballRef = useRef({ x: 300, y: 370, r: 30, vx: 0, vy: 0, thrown: false, rotation: 0 });
                 const hoopXRef = useRef(300);
                 const isMounted = useRef(false);
-                const attemptsRef = useRef([0, 0]);
-                const updateCounterRef = useRef(0);
 
                 const setupSketch = (p) => {
                     let ballImg, hoopBaseImg, hoopRingImg;
@@ -542,7 +561,7 @@
                     };
 
                     p.mousePressed = () => {
-                        if (gameStarted && turnRef.current === playerIndexRef.current && !ballRef.current.thrown && attemptsRef.current[playerIndexRef.current] < 5) {
+                        if (gameStarted && turn === playerIndexRef.current && !ballRef.current.thrown && attempts[playerIndexRef.current] < 5) {
                             if (p.mouseX >= ballRef.current.x - ballRef.current.r && p.mouseX <= ballRef.current.x + ballRef.current.r && 
                                 p.mouseY >= ballRef.current.y - ballRef.current.r && p.mouseY <= ballRef.current.y + ballRef.current.r) {
                                 dragging = true;
@@ -602,14 +621,11 @@
                             ballRef.current = { ...ballRef.current, ...data.ball };
                             hoopXRef.current = data.hoopX;
                             timerRef.current = data.timer;
-                            attemptsRef.current = data.attempts;
-
-                            // Limitar la frecuencia de updates para la UI
-                            updateCounterRef.current += 1;
-                            if (updateCounterRef.current % 5 === 0) {
-                                // Forzar un re-render cada 5 updates (aproximadamente cada 100ms)
-                                sketchRef.current.dispatchEvent(new Event('update'));
-                            }
+                            setScores(data.scores);
+                            setRound(data.round);
+                            setTurn(data.turn);
+                            setAttempts(data.attempts);
+                            setPlayers(data.players);
                         }
                     };
 
@@ -628,19 +644,24 @@
                     <div className="gameplay">
                         <div className="game-container">
                             <div ref={sketchRef}></div>
-                            <div className="score">{scoresRef.current[0]} | {scoresRef.current[1]}</div>
-                            <div className="turn">Turno: {playersRef.current[turnRef.current] || 'Esperando...'}</div>
-                            <div className="round">Ronda {roundRef.current}/3</div>
-                            {playersRef.current[0] && (
+                            <div className="score">{scores[0]} | {scores[1]}</div>
+                            <div className="turn">Turno: {players[turn] || 'Esperando...'}</div>
+                            <div className="round">Ronda {round}/3</div>
+                            <div className="attempts">
+                                Intentos: <br />
+                                {players[0]}: {attempts[0]}/5 <br />
+                                {players[1]}: {attempts[1]}/5
+                            </div>
+                            {players[0] && (
                                 <>
                                     <img src="img/iconosplayer/player1.png" alt="Player 1" className="player-icon player1" />
-                                    <div className="player-name player1-name">{playersRef.current[0]}</div>
+                                    <div className="player-name player1-name">{players[0]}</div>
                                 </>
                             )}
-                            {playersRef.current[1] && (
+                            {players[1] && (
                                 <>
                                     <img src="img/iconosplayer/player2.png" alt="Player 2" className="player-icon player2" />
-                                    <div className="player-name player2-name">{playersRef.current[1]}</div>
+                                    <div className="player-name player2-name">{players[1]}</div>
                                 </>
                             )}
                             <div className="turn-indicator" style={{ display: 'none' }}>Modo Edición - Sin Turnos</div>
