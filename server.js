@@ -22,7 +22,8 @@ const rooms = {
         bounceCount: 0,
         gameStarted: false,
         gameEnded: false,
-        shotInProgress: false
+        shotInProgress: false,
+        lastUpdate: { scores: [0, 0], round: 1, turn: 0, attempts: [0, 0], players: [], ball: null, hoopX: 300 }
     },
     room2: { 
         players: [], 
@@ -40,7 +41,8 @@ const rooms = {
         bounceCount: 0,
         gameStarted: false,
         gameEnded: false,
-        shotInProgress: false
+        shotInProgress: false,
+        lastUpdate: { scores: [0, 0], round: 1, turn: 0, attempts: [0, 0], players: [], ball: null, hoopX: 300 }
     }
 };
 let rankings = [];
@@ -75,7 +77,6 @@ const updateGameState = () => {
             }
         }
 
-        // Actualizar posición del aro solo en rondas 2 y 3
         if (room.round >= 2) {
             let hoopSpeed = room.round === 3 ? 1.5 : 1.2;
             room.hoopX += room.hoopDirection * hoopSpeed;
@@ -83,7 +84,7 @@ const updateGameState = () => {
                 room.hoopDirection *= -1;
             }
         } else {
-            room.hoopX = 300; // Mantener fijo en ronda 1
+            room.hoopX = 300;
         }
 
         if (room.ball.thrown) {
@@ -162,21 +163,28 @@ const updateGameState = () => {
             }
         }
 
-        room.players.forEach(p => {
-            if (p.ws.readyState === WebSocket.OPEN) {
-                p.ws.send(JSON.stringify({
-                    type: 'update',
-                    scores: room.scores,
-                    turn: room.turn,
-                    ball: room.ball,
-                    timer: room.timer,
-                    hoopX: room.hoopX,
-                    round: room.round,
-                    attempts: room.attempts,
-                    players: room.players.map(player => player.name)
-                }));
-            }
-        });
+        const currentState = {
+            scores: room.scores,
+            turn: room.turn,
+            ball: room.ball,
+            timer: room.timer,
+            hoopX: room.hoopX,
+            round: room.round,
+            attempts: room.attempts,
+            players: room.players.map(player => player.name)
+        };
+
+        if (JSON.stringify(currentState) !== JSON.stringify(room.lastUpdate)) {
+            room.players.forEach(p => {
+                if (p.ws.readyState === WebSocket.OPEN) {
+                    p.ws.send(JSON.stringify({
+                        type: 'update',
+                        ...currentState
+                    }));
+                }
+            });
+            room.lastUpdate = { ...currentState };
+        }
     }
 };
 
@@ -309,6 +317,15 @@ wss.on('connection', (ws) => {
                     room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
                     room.shotInProgress = false;
                     room.hoopX = 300;
+                    room.lastUpdate = { 
+                        scores: [0, 0], 
+                        round: 1, 
+                        turn: 0, 
+                        attempts: [0, 0], 
+                        players: room.players.map(p => p.name), 
+                        ball: room.ball, 
+                        hoopX: 300 
+                    };
                     
                     room.players.forEach(p => {
                         if (p.ws.readyState === WebSocket.OPEN) {
@@ -421,6 +438,7 @@ const resetRoom = (room) => {
     room.gameStarted = false;
     room.gameEnded = false;
     room.shotInProgress = false;
+    room.lastUpdate = { scores: [0, 0], round: 1, turn: 0, attempts: [0, 0], players: [], ball: null, hoopX: 300 };
 };
 
 setInterval(updateGameState, 20);
