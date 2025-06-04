@@ -357,7 +357,7 @@
                 window.playerName = name;
                 SoundManager.init();
 
-                const wsUrl = 'wss://basquetonline.onrender.com';
+                const wsUrl = 'https://basquetonline.onrender.com';
                 wsRef.current = new WebSocket(wsUrl);
 
                 wsRef.current.onopen = () => {
