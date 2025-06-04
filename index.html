@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Juego de Baloncesto Multijugador - Modo Online</title>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
@@ -34,14 +33,14 @@
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
             max-width: 600px;
-           宽度: 100%;
+            width: 100%;
         }
         .gameplay {
             width: 750px;
             height: 550px;
             position: relative;
             overflow: hidden;
-            background: url('img/fondo/background.png') no-repeat center center;
+            background: url('https://caltopsoft.github.io/img/fondo/background.png') no-repeat center center;
             background-size: cover;
             display: flex;
             justify-content: center;
@@ -201,7 +200,9 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useEffect, useRef, useReducer } = React;
+        const { useState, useEffect, useRef, useReducer, memo, createContext, useContext } = React;
+
+        const WebSocketContext = createContext(null);
 
         const SoundManager = (() => {
             let backgroundSound = null;
@@ -215,33 +216,30 @@
             let isSoundPlaying = false;
 
             const init = () => {
-                backgroundSound = new Audio('sound/background.mp3');
+                backgroundSound = new Audio('https://caltopsoft.github.io/sound/background.mp3');
                 backgroundSound.loop = true;
                 backgroundSound.volume = 0.2;
 
-                bounceSound = new Audio('sound/ball_bounce.mp3');
+                bounceSound = new Audio('https://caltopsoft.github.io/sound/ball_bounce.mp3');
                 bounceSound.volume = 0.5;
-                hoopHitSound = new Audio('sound/hoop_hit.mp3');
+                hoopHitSound = new Audio('https://caltopsoft.github.io/sound/hoop_hit.mp3');
                 hoopHitSound.volume = 0.4;
-                wheelsSound = new Audio('sound/wheels.mp3');
+                wheelsSound = new Audio('https://caltopsoft.github.io/sound/wheels.mp3');
                 wheelsSound.volume = 0.3;
-                scoreSound = new Audio('sound/score.mp3');
+                scoreSound = new Audio('https://caltopsoft.github.io/sound/score.mp3');
                 scoreSound.volume = 0.6;
-                scoreAddSound = new Audio('sound/score_add.mp3');
+                scoreAddSound = new Audio('https://caltopsoft.github.io/sound/score_add.mp3');
                 scoreAddSound.volume = 0.6;
-                winSound = new Audio('sound/win.mp3');
+                winSound = new Audio('https://caltopsoft.github.io/sound/win.mp3');
                 winSound.volume = 0.7;
-                loseSound = new Audio('sound/lose.mp3');
+                loseSound = new Audio('https://caltopsoft.github.io/sound/lose.mp3');
                 loseSound.volume = 0.7;
-
-                console.log("SoundManager initialized with native Audio API");
             };
 
             const playBackground = () => {
                 if (backgroundSound && !isSoundPlaying) {
                     backgroundSound.play().catch(err => console.error("Error playing background sound:", err));
                     isSoundPlaying = true;
-                    console.log("Background sound started");
                 }
             };
 
@@ -250,7 +248,6 @@
                     backgroundSound.pause();
                     backgroundSound.currentTime = 0;
                     isSoundPlaying = false;
-                    console.log("Background sound stopped");
                 }
             };
 
@@ -268,7 +265,6 @@
                 if (sound) {
                     sound.currentTime = 0;
                     sound.play().catch(err => console.error(`Error playing ${soundType} sound:`, err));
-                    console.log(`${soundType} sound played`);
                 }
             };
 
@@ -307,11 +303,10 @@
             }
         };
 
-        const App = () => {
-            console.log("App component rendered");
-
-            const [screen, setScreen] = useState('home');
-            const [name, setName] = useState('Jugador1');
+        const WebSocketProvider = ({ children }) => {
+            const wsRef = useRef(null);
+            const reconnectAttempts = useRef(0);
+            const maxReconnectAttempts = 5;
             const [gameState, dispatch] = useReducer(gameReducer, {
                 room: null,
                 gameStarted: false,
@@ -322,50 +317,44 @@
                 turn: 0,
                 attempts: [0, 0]
             });
-            const countdownRef = useRef(0);
-            const rankingsRef = useRef([]);
-            const roomStatusRef = useRef({ room1: { players: 0 }, room2: { players: 0 } });
-            const playerIndexRef = useRef(null);
-            const wsRef = useRef(null);
             const lastBallStateRef = useRef(null);
             const lastUpdateRef = useRef(0);
+            const playerIndexRef = useRef(null);
+            const rankingsRef = useRef([]);
+            const roomStatusRef = useRef({ room1: { players: 0 }, room2: { players: 0 } });
 
-            useEffect(() => {
-                SoundManager.init();
-
+            const connectWebSocket = () => {
                 const wsUrl = 'wss://basquetonline.onrender.com';
                 wsRef.current = new WebSocket(wsUrl);
 
                 wsRef.current.onopen = () => {
                     console.log("Connected to WebSocket server");
+                    reconnectAttempts.current = 0;
                     wsRef.current.send(JSON.stringify({ type: 'getRooms' }));
                     wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
                 };
 
                 wsRef.current.onmessage = (event) => {
                     const now = Date.now();
-                    if (now - lastUpdateRef.current < 100) return; // Limitar a 10 FPS
+                    if (now - lastUpdateRef.current < 100) return;
                     lastUpdateRef.current = now;
 
                     const data = JSON.parse(event.data);
 
                     if (data.type === 'rooms') {
                         roomStatusRef.current = data.rooms;
-                        setScreen(screen => screen);
                     }
 
                     if (data.type === 'joined') {
                         dispatch({ type: 'SET_ROOM', payload: data.room });
                         dispatch({ type: 'UPDATE_GAME_STATE', payload: { players: data.players } });
                         playerIndexRef.current = data.playerIndex;
-                        setScreen('gameplay');
                     }
 
                     if (data.type === 'start') {
                         dispatch({ 
                             type: 'UPDATE_GAME_STATE', 
                             payload: {
-                                gameStarted: true,
                                 players: data.players,
                                 scores: data.scores,
                                 round: data.round,
@@ -437,9 +426,8 @@
 
                     if (data.type === 'end') {
                         dispatch({ type: 'SET_WINNER', payload: data.winner });
-                        setScreen('result');
                         dispatch({ type: 'SET_GAME_STARTED', payload: false });
-                        if (data.winner === name) {
+                        if (data.winner === window.playerName) {
                             SoundManager.playSound('win');
                         } else if (data.winner !== 'tie') {
                             SoundManager.playSound('lose');
@@ -452,14 +440,29 @@
 
                     if (data.type === 'full') {
                         alert("La sala está llena. Por favor, elige otra sala.");
-                        setScreen('rooms');
                     }
                 };
 
                 wsRef.current.onclose = () => {
                     console.log("Disconnected from WebSocket server");
                     SoundManager.stopBackground();
+                    if (reconnectAttempts.current < maxReconnectAttempts) {
+                        setTimeout(() => {
+                            reconnectAttempts.current += 1;
+                            console.log(`Reconnecting... Attempt ${reconnectAttempts.current}`);
+                            connectWebSocket();
+                        }, 1000 * reconnectAttempts.current);
+                    }
                 };
+
+                wsRef.current.onerror = (err) => {
+                    console.error("WebSocket error:", err);
+                };
+            };
+
+            useEffect(() => {
+                SoundManager.init();
+                connectWebSocket();
 
                 return () => {
                     if (wsRef.current) {
@@ -469,307 +472,320 @@
                 };
             }, []);
 
-            const Home = ({ setScreen, name, setName }) => {
-                const startSound = () => {
-                    SoundManager.playBackground();
+            return (
+                <WebSocketContext.Provider value={{ wsRef, gameState, dispatch, playerIndexRef, rankingsRef, roomStatusRef }}>
+                    {children}
+                </WebSocketContext.Provider>
+            );
+        };
+
+        const App = () => {
+            const [screen, setScreen] = useState('home');
+            const [name, setName] = useState('Jugador1');
+
+            useEffect(() => {
+                window.playerName = name;
+            }, [name]);
+
+            return (
+                <WebSocketProvider>
+                    {screen === 'home' && <Home setScreen={setScreen} name={name} setName={setName} />}
+                    {screen === 'rooms' && <Rooms setScreen={setScreen} />}
+                    {screen === 'gameplay' && <Gameplay />}
+                    {screen === 'rankings' && <Rankings setScreen={setScreen} />}
+                    {screen === 'credits' && <Credits setScreen={setScreen} />}
+                    {screen === 'result' && <Result name={name} setScreen={setScreen} />}
+                </WebSocketProvider>
+            );
+        };
+
+        const Home = ({ setScreen, name, setName }) => {
+            const startSound = () => {
+                SoundManager.playBackground();
+            };
+
+            useEffect(() => {
+                const handleInteraction = () => {
+                    startSound();
+                    document.removeEventListener('click', handleInteraction);
                 };
+                document.addEventListener('click', handleInteraction);
+                return () => document.removeEventListener('click', handleInteraction);
+            }, []);
 
-                useEffect(() => {
-                    const handleInteraction = () => {
-                        startSound();
-                        document.removeEventListener('click', handleInteraction);
-                    };
-                    document.addEventListener('click', handleInteraction);
-                    return () => document.removeEventListener('click', handleInteraction);
-                }, []);
+            return (
+                <div className="container">
+                    <h1>Juego de Baloncesto</h1>
+                    <input
+                        type="text"
+                        placeholder="Ingresa tu nombre"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                    />
+                    <br />
+                    <button onClick={() => setScreen('rooms')}>Entrar a Partida</button>
+                    <button onClick={() => setScreen('rankings')}>Rankings</button>
+                    <button onClick={() => setScreen('credits')}>Créditos v1.0</button>
+                </div>
+            );
+        };
 
-                return (
-                    <div className="container">
-                        <h1>Juego de Baloncesto</h1>
-                        <input
-                            type="text"
-                            placeholder="Ingresa tu nombre"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                        />
-                        <br />
-                        <button onClick={() => setScreen('rooms')}>Entrar a Partida</button>
-                        <button onClick={() => setScreen('rankings')}>Rankings</button>
-                        <button onClick={() => setScreen('credits')}>Créditos v1.0</button>
-                    </div>
-                );
-            };
+        const Rooms = ({ setScreen }) => {
+            const { wsRef, roomStatusRef } = useContext(WebSocketContext);
 
-            const Rooms = ({ setScreen }) => {
-                const joinRoom = (roomName) => {
-                    if (wsRef.current) {
-                        wsRef.current.send(JSON.stringify({ type: 'join', room: roomName, name }));
-                    }
-                };
-
-                return (
-                    <div className="container">
-                        <h1>Salas</h1>
-                        <div className="room">
-                            <span>Sala 1 ({roomStatusRef.current.room1.players}/2)</span>
-                            <button 
-                                onClick={() => joinRoom('room1')} 
-                                disabled={roomStatusRef.current.room1.players >= 2}
-                            >
-                                Entrar
-                            </button>
-                        </div>
-                        <div className="room">
-                            <span>Sala 2 ({roomStatusRef.current.room2.players}/2)</span>
-                            <button 
-                                onClick={() => joinRoom('room2')} 
-                                disabled={roomStatusRef.current.room2.players >= 2}
-                            >
-                                Entrar
-                            </button>
-                        </div>
-                        <button onClick={() => setScreen('home')}>Volver</button>
-                    </div>
-                );
-            };
-
-            const Gameplay = ({ name }) => {
-                const sketchRef = useRef(null);
-                const p5Instance = useRef(null);
-                const timerRef = useRef(8);
-                const ballRef = useRef({ x: 300, y: 370, r: 30, vx: 0, vy: 0, thrown: false, rotation: 0 });
-                const hoopXRef = useRef(300);
-                const isMounted = useRef(false);
-
-                const setupSketch = (p) => {
-                    let ballImg, hoopBaseImg, hoopRingImg;
-                    let dragging = false;
-                    let dragStartX, dragStartY;
-                    let ballScale = 1;
-
-                    p.preload = () => {
-                        try {
-                            ballImg = p.loadImage('img/balon/ball.png');
-                            hoopBaseImg = p.loadImage('img/arco/hoop_base.png');
-                            hoopRingImg = p.loadImage('img/arco/hoop_ring.png');
-                            console.log("Resources loaded successfully");
-                        } catch (error) {
-                            console.error("Error loading resources:", error);
-                        }
-                    };
-
-                    p.setup = () => {
-                        p.createCanvas(600, 400);
-                        p.frameRate(30);
-                    };
-
-                    p.draw = () => {
-                        p.clear();
-
-                        ballRef.current.x = ballRef.current.x || 300;
-                        ballRef.current.y = ballRef.current.y || 370;
-                        hoopXRef.current = hoopXRef.current || 300;
-
-                        const hoopBaseWidth = 240;
-                        const hoopBaseHeight = hoopBaseWidth * (3464 / 2598);
-                        const hoopRingWidth = 75;
-                        const hoopRingHeight = hoopRingWidth * (499 / 788);
-
-                        if (ballImg && hoopBaseImg && hoopRingImg) {
-                            p.image(hoopBaseImg, hoopXRef.current - hoopBaseWidth / 1.98, 40, hoopBaseWidth, hoopBaseHeight);
-                            ballScale = p.map(ballRef.current.y, 370, 113, 1, 0.8);
-                            ballScale = p.constrain(ballScale, 0.8, 1);
-                            const drawRotatedBall = () => {
-                                p.push();
-                                p.translate(ballRef.current.x, ballRef.current.y);
-                                p.rotate(ballRef.current.rotation || 0);
-                                p.image(ballImg, -ballRef.current.r * ballScale, -ballRef.current.r * ballScale, ballRef.current.r * 2 * ballScale, ballRef.current.r * 2 * ballScale);
-                                p.pop();
-                            };
-
-                            if (ballRef.current.vy > 0) {
-                                drawRotatedBall();
-                                p.image(hoopRingImg, hoopXRef.current - hoopRingWidth / 2.2, 113, hoopRingWidth, hoopRingHeight);
-                            } else {
-                                p.image(hoopRingImg, hoopXRef.current - hoopRingWidth / 2.2, 113, hoopRingWidth, hoopRingHeight);
-                                drawRotatedBall();
-                            }
-                        }
-
-                        if (gameState.gameStarted) {
-                            const timerWidth = p.map(timerRef.current, 0, 8, 0, 100);
-                            p.noStroke();
-                            p.fill(255, 0, 0);
-                            p.rect(300, 10, 100, 10);
-                            p.fill(0, 255, 0);
-                            p.rect(300, 10, timerWidth, 10);
-                        }
-                    };
-
-                    p.mousePressed = () => {
-                        if (gameState.gameStarted && gameState.turn === playerIndexRef.current && !ballRef.current.thrown && gameState.attempts[playerIndexRef.current] < 5) {
-                            if (p.mouseX >= ballRef.current.x - ballRef.current.r && p.mouseX <= ballRef.current.x + ballRef.current.r && 
-                                p.mouseY >= ballRef.current.y - ballRef.current.r && p.mouseY <= ballRef.current.y + ballRef.current.r) {
-                                dragging = true;
-                                dragStartX = p.mouseX;
-                                dragStartY = p.mouseY;
-                            }
-                        }
-                    };
-
-                    p.mouseReleased = () => {
-                        if (dragging) {
-                            const dx = p.mouseX - dragStartX;
-                            const dy = p.mouseY - dragStartY;
-                            const power = Math.min(Math.max(Math.sqrt(dx * dx + dy * dy) / 10, 0.2), 15);
-                            const angle = Math.atan2(dy, dx);
-                            const vx = power * Math.cos(angle);
-                            const vy = power * Math.sin(angle);
-
-                            if (wsRef.current) {
-                                wsRef.current.send(JSON.stringify({
-                                    type: 'shot',
-                                    room: gameState.room,
-                                    playerIndex: playerIndexRef.current,
-                                    ballVX: vx,
-                                    ballVY: vy
-                                }));
-                            }
-
-                            dragging = false;
-                        }
-                    };
-
-                    p.mouseDragged = () => {
-                        if (dragging) console.log("Dragging in progress...");
-                    };
-                };
-
-                useEffect(() => {
-                    if (!isMounted.current && sketchRef.current && gameState.gameStarted) {
-                        p5Instance.current = new p5(setupSketch, sketchRef.current);
-                        isMounted.current = true;
-                    }
-
-                    return () => {
-                        if (p5Instance.current) {
-                            p5Instance.current.remove();
-                            p5Instance.current = null;
-                            isMounted.current = false;
-                        }
-                    };
-                }, [gameState.gameStarted]);
-
-                useEffect(() => {
-                    const handleMessage = (event) => {
-                        const data = JSON.parse(event.data);
-                        if (data.type === 'update') {
-                            ballRef.current = { ...ballRef.current, ...data.ball };
-                            hoopXRef.current = data.hoopX;
-                            timerRef.current = data.timer;
-                            dispatch({ 
-                                type: 'UPDATE_GAME_STATE', 
-                                payload: {
-                                    scores: data.scores,
-                                    round: data.round,
-                                    turn: data.turn,
-                                    attempts: data.attempts,
-                                    players: data.players
-                                }
-                            });
-                        }
-                    };
-
-                    if (wsRef.current) {
-                        wsRef.current.addEventListener('message', handleMessage);
-                    }
-
-                    return () => {
-                        if (wsRef.current) {
-                            wsRef.current.removeEventListener('message', handleMessage);
-                        }
-                    };
-                }, []);
-
-                return (
-                    <div className="gameplay">
-                        <div className="game-container">
-                            <div ref={sketchRef}></div>
-                            <div className="score">{gameState.scores[0]} | {gameState.scores[1]}</div>
-                            <div className="turn">Turno: {gameState.players[gameState.turn] || 'Esperando...'}</div>
-                            <div className="round">Ronda {gameState.round}/3</div>
-                            <div className="attempts">
-                                Intentos: <br />
-                                {gameState.players[0]}: {gameState.attempts[0]}/5 <br />
-                                {gameState.players[1]}: {gameState.attempts[1]}/5
-                            </div>
-                            {gameState.players[0] && (
-                                <>
-                                    <img src="img/iconosplayer/player1.png" alt="Player 1" className="player-icon player1" />
-                                    <div className="player-name player1-name">{gameState.players[0]}</div>
-                                </>
-                            )}
-                            {gameState.players[1] && (
-                                <>
-                                    <img src="img/iconosplayer/player2.png" alt="Player 2" className="player-icon player2" />
-                                    <div className="player-name player2-name">{gameState.players[1]}</div>
-                                </>
-                            )}
-                            <div className="turn-indicator" style={{ display: 'none' }}>Modo Edición - Sin Turnos</div>
-                            {gameState.gameStarted && <div className="timer"><div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div></div>}
-                            {countdownRef.current > 0 && <div className="countdown">{countdownRef.current}</div>}
-                            {!gameState.gameStarted && <div className="waiting-message">Esperando al segundo jugador...</div>}
-                        </div>
-                    </div>
-                );
-            };
-
-            const Rankings = ({ setScreen }) => {
-                return (
-                    <div className="container">
-                        <h1>Rankings</h1>
-                        {rankingsRef.current.map((entry, index) => (
-                            <div key={index}>
-                                {index + 1}. {entry.name}: {entry.score}
-                            </div>
-                        ))}
-                        <button onClick={() => setScreen('home')}>Volver</button>
-                    </div>
-                );
-            };
-
-            const Credits = ({ setScreen }) => {
-                return (
-                    <div className="container">
-                        <h1>Créditos</h1>
-                        <p>Juego creado por [Tu Nombre]</p>
-                        <p>Arte y diseño: [Tu Nombre]</p>
-                        <p>Sonidos: SoundJay.com</p>
-                        <p>Gracias a xAI por la asistencia</p>
-                        <button onClick={() => setScreen('home')}>Volver</button>
-                    </div>
-                );
-            };
-
-            const Result = ({ winner, name, setScreen }) => {
-                return (
-                    <div className="container">
-                        <h1>{winner === 'tie' ? '¡Empate!' : winner === name ? '¡Ganaste!' : 'Perdiste'}</h1>
-                        <button onClick={() => setScreen('rooms')}>Volver</button>
-                    </div>
-                );
+            const joinRoom = (roomName) => {
+                if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                    wsRef.current.send(JSON.stringify({ type: 'join', room: roomName, name: window.playerName }));
+                    setScreen('gameplay');
+                } else {
+                    alert("No se pudo conectar al servidor. Intenta de nuevo.");
+                }
             };
 
             return (
-                <div>
-                    {screen === 'home' && <Home setScreen={setScreen} name={name} setName={setName} />}
-                    {screen === 'rooms' && <Rooms setScreen={setScreen} />}
-                    {screen === 'gameplay' && (
-                        <Gameplay name={name} />
-                    )}
-                    {screen === 'rankings' && <Rankings setScreen={setScreen} />}
-                    {screen === 'credits' && <Credits setScreen={setScreen} />}
-                    {screen === 'result' && <Result winner={gameState.winner} name={name} setScreen={setScreen} />}
+                <div className="container">
+                    <h1>Salas</h1>
+                    <div className="room">
+                        <span>Sala 1 ({roomStatusRef.current.room1.players}/2)</span>
+                        <button 
+                            onClick={() => joinRoom('room1')} 
+                            disabled={roomStatusRef.current.room1.players >= 2}
+                        >
+                            Entrar
+                        </button>
+                    </div>
+                    <div className="room">
+                        <span>Sala 2 ({roomStatusRef.current.room2.players}/2)</span>
+                        <button 
+                            onClick={() => joinRoom('room2')} 
+                            disabled={roomStatusRef.current.room2.players >= 2}
+                        >
+                            Entrar
+                        </button>
+                    </div>
+                    <button onClick={() => setScreen('home')}>Volver</button>
+                </div>
+            );
+        };
+
+        const Gameplay = memo(() => {
+            const { gameState, wsRef, playerIndexRef } = useContext(WebSocketContext);
+            const sketchRef = useRef(null);
+            const p5Instance = useRef(null);
+            const timerRef = useRef(8);
+            const ballRef = useRef({ x: 300, y: 370, r: 30, vx: 0, vy: 0, thrown: false, rotation: 0 });
+            const hoopXRef = useRef(300);
+            const isMounted = useRef(false);
+
+            const setupSketch = (p) => {
+                let ballImg, hoopBaseImg, hoopRingImg;
+                let dragging = false;
+                let dragStartX, dragStartY;
+                let ballScale = 1;
+
+                p.preload = () => {
+                    try {
+                        ballImg = p.loadImage('https://caltopsoft.github.io/img/balon/ball.png');
+                        hoopBaseImg = p.loadImage('https://caltopsoft.github.io/img/arco/hoop_base.png');
+                        hoopRingImg = p.loadImage('https://caltopsoft.github.io/img/arco/hoop_ring.png');
+                    } catch (error) {
+                        console.error("Error loading resources:", error);
+                    }
+                };
+
+                p.setup = () => {
+                    p.createCanvas(600, 400);
+                    p.frameRate(30);
+                };
+
+                p.draw = () => {
+                    p.clear();
+
+                    ballRef.current.x = ballRef.current.x || 300;
+                    ballRef.current.y = ballRef.current.y || 370;
+                    hoopXRef.current = hoopXRef.current || 300;
+
+                    const hoopBaseWidth = 240;
+                    const hoopBaseHeight = hoopBaseWidth * (3464 / 2598);
+                    const hoopRingWidth = 75;
+                    const hoopRingHeight = hoopRingWidth * (499 / 788);
+
+                    if (ballImg && hoopBaseImg && hoopRingImg) {
+                        p.image(hoopBaseImg, hoopXRef.current - hoopBaseWidth / 1.98, 40, hoopBaseWidth, hoopBaseHeight);
+                        ballScale = p.map(ballRef.current.y, 370, 113, 1, 0.8);
+                        ballScale = p.constrain(ballScale, 0.8, 1);
+                        const drawRotatedBall = () => {
+                            p.push();
+                            p.translate(ballRef.current.x, ballRef.current.y);
+                            p.rotate(ballRef.current.rotation || 0);
+                            p.image(ballImg, -ballRef.current.r * ballScale, -ballRef.current.r * ballScale, ballRef.current.r * 2 * ballScale, ballRef.current.r * 2 * ballScale);
+                            p.pop();
+                        };
+
+                        if (ballRef.current.vy > 0) {
+                            drawRotatedBall();
+                            p.image(hoopRingImg, hoopXRef.current - hoopRingWidth / 2.2, 113, hoopRingWidth, hoopRingHeight);
+                        } else {
+                            p.image(hoopRingImg, hoopXRef.current - hoopRingWidth / 2.2, 113, hoopRingWidth, hoopRingHeight);
+                            drawRotatedBall();
+                        }
+                    }
+
+                    if (gameState.gameStarted) {
+                        const timerWidth = p.map(timerRef.current, 0, 8, 0, 100);
+                        p.noStroke();
+                        p.fill(255, 0, 0);
+                        p.rect(300, 10, 100, 10);
+                        p.fill(0, 255, 0);
+                        p.rect(300, 10, timerWidth, 10);
+                    }
+                };
+
+                p.mousePressed = () => {
+                    if (gameState.gameStarted && gameState.turn === playerIndexRef.current && !ballRef.current.thrown && gameState.attempts[playerIndexRef.current] < 5) {
+                        if (p.mouseX >= ballRef.current.x - ballRef.current.r && p.mouseX <= ballRef.current.x + ballRef.current.r && 
+                            p.mouseY >= ballRef.current.y - ballRef.current.r && p.mouseY <= ballRef.current.y + ballRef.current.r) {
+                            dragging = true;
+                            dragStartX = p.mouseX;
+                            dragStartY = p.mouseY;
+                        }
+                    }
+                };
+
+                p.mouseReleased = () => {
+                    if (dragging) {
+                        const dx = p.mouseX - dragStartX;
+                        const dy = p.mouseY - dragStartY;
+                        const power = Math.min(Math.max(Math.sqrt(dx * dx + dy * dy) / 10, 0.2), 15);
+                        const angle = Math.atan2(dy, dx);
+                        const vx = power * Math.cos(angle);
+                        const vy = power * Math.sin(angle);
+
+                        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                            wsRef.current.send(JSON.stringify({
+                                type: 'shot',
+                                room: gameState.room,
+                                playerIndex: playerIndexRef.current,
+                                ballVX: vx,
+                                ballVY: vy
+                            }));
+                        }
+
+                        dragging = false;
+                    }
+                };
+
+                p.mouseDragged = () => {
+                    if (dragging && Date.now() - lastUpdateRef.current > 100) {
+                        lastUpdateRef.current = Date.now();
+                    }
+                };
+            };
+
+            useEffect(() => {
+                if (!isMounted.current && sketchRef.current && gameState.gameStarted) {
+                    p5Instance.current = new p5(setupSketch, sketchRef.current);
+                    isMounted.current = true;
+                }
+
+                return () => {
+                    if (p5Instance.current) {
+                        p5Instance.current.remove();
+                        p5Instance.current = null;
+                        isMounted.current = false;
+                    }
+                };
+            }, [gameState.gameStarted]);
+
+            useEffect(() => {
+                const handleMessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'update') {
+                        ballRef.current = { ...ballRef.current, ...data.ball };
+                        hoopXRef.current = data.hoopX;
+                        timerRef.current = data.timer;
+                    }
+                };
+
+                if (wsRef.current) {
+                    wsRef.current.addEventListener('message', handleMessage);
+                }
+
+                return () => {
+                    if (wsRef.current) {
+                        wsRef.current.removeEventListener('message', handleMessage);
+                    }
+                };
+            }, []);
+
+            return (
+                <div className="gameplay">
+                    <div className="game-container">
+                        <div ref={sketchRef}></div>
+                        <div className="score">{gameState.scores[0]} | {gameState.scores[1]}</div>
+                        <div className="turn">Turno: {gameState.players[gameState.turn] || 'Esperando...'}</div>
+                        <div className="round">Ronda {gameState.round}/3</div>
+                        <div className="attempts">
+                            Intentos: <br />
+                            {gameState.players[0]}: {gameState.attempts[0]}/5 <br />
+                            {gameState.players[1]}: {gameState.attempts[1]}/5
+                        </div>
+                        {gameState.players[0] && (
+                            <>
+                                <img src="https://caltopsoft.github.io/img/iconosplayer/player1.png" alt="Player 1" className="player-icon player1" />
+                                <div className="player-name player1-name">{gameState.players[0]}</div>
+                            </>
+                        )}
+                        {gameState.players[1] && (
+                            <>
+                                <img src="https://caltopsoft.github.io/img/iconosplayer/player2.png" alt="Player 2" className="player-icon player2" />
+                                <div className="player-name player2-name">{gameState.players[1]}</div>
+                            </>
+                        )}
+                        <div className="turn-indicator" style={{ display: 'none' }}>Modo Edición - Sin Turnos</div>
+                        {gameState.gameStarted && <div className="timer"><div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div></div>}
+                        {!gameState.gameStarted && <div className="waiting-message">Esperando al segundo jugador...</div>}
+                    </div>
+                </div>
+            );
+        });
+
+        const Rankings = ({ setScreen }) => {
+            const { rankingsRef } = useContext(WebSocketContext);
+
+            return (
+                <div className="container">
+                    <h1>Rankings</h1>
+                    {rankingsRef.current.map((entry, index) => (
+                        <div key={index}>
+                            {index + 1}. {entry.name}: {entry.score}
+                        </div>
+                    ))}
+                    <button onClick={() => setScreen('home')}>Volver</button>
+                </div>
+            );
+        };
+
+        const Credits = ({ setScreen }) => {
+            return (
+                <div className="container">
+                    <h1>Créditos</h1>
+                    <p>Juego creado por [Tu Nombre]</p>
+                    <p>Arte y diseño: [Tu Nombre]</p>
+                    <p>Sonidos: SoundJay.com</p>
+                    <p>Gracias a xAI por la asistencia</p>
+                    <button onClick={() => setScreen('home')}>Volver</button>
+                </div>
+            );
+        };
+
+        const Result = ({ name, setScreen }) => {
+            const { gameState } = useContext(WebSocketContext);
+
+            return (
+                <div className="container">
+                    <h1>{gameState.winner === 'tie' ? '¡Empate!' : gameState.winner === name ? '¡Ganaste!' : 'Perdiste'}</h1>
+                    <button onClick={() => setScreen('rooms')}>Volver</button>
                 </div>
             );
         };
