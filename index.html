@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Juego de Baloncesto Multijugador - Modo Online</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
@@ -33,7 +34,7 @@
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
             max-width: 600px;
-            width: 100%;
+           宽度: 100%;
         }
         .gameplay {
             width: 750px;
@@ -200,7 +201,7 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useReducer } = React;
 
         const SoundManager = (() => {
             let backgroundSound = null;
@@ -284,25 +285,50 @@
             return { init, playBackground, stopBackground, playSound, cleanup };
         })();
 
+        const gameReducer = (state, action) => {
+            switch (action.type) {
+                case 'UPDATE_GAME_STATE':
+                    return {
+                        ...state,
+                        scores: action.payload.scores || state.scores,
+                        round: action.payload.round || state.round,
+                        turn: action.payload.turn || state.turn,
+                        attempts: action.payload.attempts || state.attempts,
+                        players: action.payload.players || state.players
+                    };
+                case 'SET_ROOM':
+                    return { ...state, room: action.payload };
+                case 'SET_GAME_STARTED':
+                    return { ...state, gameStarted: action.payload };
+                case 'SET_WINNER':
+                    return { ...state, winner: action.payload };
+                default:
+                    return state;
+            }
+        };
+
         const App = () => {
             console.log("App component rendered");
 
             const [screen, setScreen] = useState('home');
             const [name, setName] = useState('Jugador1');
-            const [room, setRoom] = useState(null);
-            const [gameStarted, setGameStarted] = useState(false);
-            const [winner, setWinner] = useState(null);
-            const [players, setPlayers] = useState([]);
-            const [scores, setScores] = useState([0, 0]);
-            const [round, setRound] = useState(1);
-            const [turn, setTurn] = useState(0);
-            const [attempts, setAttempts] = useState([0, 0]);
+            const [gameState, dispatch] = useReducer(gameReducer, {
+                room: null,
+                gameStarted: false,
+                winner: null,
+                players: [],
+                scores: [0, 0],
+                round: 1,
+                turn: 0,
+                attempts: [0, 0]
+            });
             const countdownRef = useRef(0);
             const rankingsRef = useRef([]);
             const roomStatusRef = useRef({ room1: { players: 0 }, room2: { players: 0 } });
             const playerIndexRef = useRef(null);
             const wsRef = useRef(null);
             const lastBallStateRef = useRef(null);
+            const lastUpdateRef = useRef(0);
 
             useEffect(() => {
                 SoundManager.init();
@@ -317,6 +343,10 @@
                 };
 
                 wsRef.current.onmessage = (event) => {
+                    const now = Date.now();
+                    if (now - lastUpdateRef.current < 100) return; // Limitar a 10 FPS
+                    lastUpdateRef.current = now;
+
                     const data = JSON.parse(event.data);
 
                     if (data.type === 'rooms') {
@@ -325,27 +355,38 @@
                     }
 
                     if (data.type === 'joined') {
-                        setRoom(data.room);
-                        setPlayers(data.players);
+                        dispatch({ type: 'SET_ROOM', payload: data.room });
+                        dispatch({ type: 'UPDATE_GAME_STATE', payload: { players: data.players } });
                         playerIndexRef.current = data.playerIndex;
                         setScreen('gameplay');
                     }
 
                     if (data.type === 'start') {
-                        setGameStarted(true);
-                        setPlayers(data.players);
-                        setScores(data.scores);
-                        setRound(data.round);
-                        setTurn(data.turn);
-                        setAttempts(data.attempts);
+                        dispatch({ 
+                            type: 'UPDATE_GAME_STATE', 
+                            payload: {
+                                gameStarted: true,
+                                players: data.players,
+                                scores: data.scores,
+                                round: data.round,
+                                turn: data.turn,
+                                attempts: data.attempts
+                            }
+                        });
+                        dispatch({ type: 'SET_GAME_STARTED', payload: true });
                     }
 
                     if (data.type === 'update') {
-                        setScores(data.scores);
-                        setRound(data.round);
-                        setPlayers(data.players);
-                        setTurn(data.turn);
-                        setAttempts(data.attempts);
+                        dispatch({ 
+                            type: 'UPDATE_GAME_STATE', 
+                            payload: {
+                                scores: data.scores,
+                                round: data.round,
+                                turn: data.turn,
+                                attempts: data.attempts,
+                                players: data.players
+                            }
+                        });
 
                         if (lastBallStateRef.current && data.ball) {
                             if (
@@ -384,15 +425,20 @@
                     }
 
                     if (data.type === 'newRound') {
-                        setRound(data.round);
-                        setTurn(data.turn);
-                        setAttempts(data.attempts);
+                        dispatch({ 
+                            type: 'UPDATE_GAME_STATE', 
+                            payload: { 
+                                round: data.round,
+                                turn: data.turn,
+                                attempts: data.attempts
+                            }
+                        });
                     }
 
                     if (data.type === 'end') {
-                        setWinner(data.winner);
+                        dispatch({ type: 'SET_WINNER', payload: data.winner });
                         setScreen('result');
-                        setGameStarted(false);
+                        dispatch({ type: 'SET_GAME_STARTED', payload: false });
                         if (data.winner === name) {
                             SoundManager.playSound('win');
                         } else if (data.winner !== 'tie') {
@@ -550,7 +596,7 @@
                             }
                         }
 
-                        if (gameStarted) {
+                        if (gameState.gameStarted) {
                             const timerWidth = p.map(timerRef.current, 0, 8, 0, 100);
                             p.noStroke();
                             p.fill(255, 0, 0);
@@ -561,7 +607,7 @@
                     };
 
                     p.mousePressed = () => {
-                        if (gameStarted && turn === playerIndexRef.current && !ballRef.current.thrown && attempts[playerIndexRef.current] < 5) {
+                        if (gameState.gameStarted && gameState.turn === playerIndexRef.current && !ballRef.current.thrown && gameState.attempts[playerIndexRef.current] < 5) {
                             if (p.mouseX >= ballRef.current.x - ballRef.current.r && p.mouseX <= ballRef.current.x + ballRef.current.r && 
                                 p.mouseY >= ballRef.current.y - ballRef.current.r && p.mouseY <= ballRef.current.y + ballRef.current.r) {
                                 dragging = true;
@@ -583,7 +629,7 @@
                             if (wsRef.current) {
                                 wsRef.current.send(JSON.stringify({
                                     type: 'shot',
-                                    room: room,
+                                    room: gameState.room,
                                     playerIndex: playerIndexRef.current,
                                     ballVX: vx,
                                     ballVY: vy
@@ -600,7 +646,7 @@
                 };
 
                 useEffect(() => {
-                    if (!isMounted.current && sketchRef.current && gameStarted) {
+                    if (!isMounted.current && sketchRef.current && gameState.gameStarted) {
                         p5Instance.current = new p5(setupSketch, sketchRef.current);
                         isMounted.current = true;
                     }
@@ -612,7 +658,7 @@
                             isMounted.current = false;
                         }
                     };
-                }, [gameStarted]);
+                }, [gameState.gameStarted]);
 
                 useEffect(() => {
                     const handleMessage = (event) => {
@@ -621,11 +667,16 @@
                             ballRef.current = { ...ballRef.current, ...data.ball };
                             hoopXRef.current = data.hoopX;
                             timerRef.current = data.timer;
-                            setScores(data.scores);
-                            setRound(data.round);
-                            setTurn(data.turn);
-                            setAttempts(data.attempts);
-                            setPlayers(data.players);
+                            dispatch({ 
+                                type: 'UPDATE_GAME_STATE', 
+                                payload: {
+                                    scores: data.scores,
+                                    round: data.round,
+                                    turn: data.turn,
+                                    attempts: data.attempts,
+                                    players: data.players
+                                }
+                            });
                         }
                     };
 
@@ -644,30 +695,30 @@
                     <div className="gameplay">
                         <div className="game-container">
                             <div ref={sketchRef}></div>
-                            <div className="score">{scores[0]} | {scores[1]}</div>
-                            <div className="turn">Turno: {players[turn] || 'Esperando...'}</div>
-                            <div className="round">Ronda {round}/3</div>
+                            <div className="score">{gameState.scores[0]} | {gameState.scores[1]}</div>
+                            <div className="turn">Turno: {gameState.players[gameState.turn] || 'Esperando...'}</div>
+                            <div className="round">Ronda {gameState.round}/3</div>
                             <div className="attempts">
                                 Intentos: <br />
-                                {players[0]}: {attempts[0]}/5 <br />
-                                {players[1]}: {attempts[1]}/5
+                                {gameState.players[0]}: {gameState.attempts[0]}/5 <br />
+                                {gameState.players[1]}: {gameState.attempts[1]}/5
                             </div>
-                            {players[0] && (
+                            {gameState.players[0] && (
                                 <>
                                     <img src="img/iconosplayer/player1.png" alt="Player 1" className="player-icon player1" />
-                                    <div className="player-name player1-name">{players[0]}</div>
+                                    <div className="player-name player1-name">{gameState.players[0]}</div>
                                 </>
                             )}
-                            {players[1] && (
+                            {gameState.players[1] && (
                                 <>
                                     <img src="img/iconosplayer/player2.png" alt="Player 2" className="player-icon player2" />
-                                    <div className="player-name player2-name">{players[1]}</div>
+                                    <div className="player-name player2-name">{gameState.players[1]}</div>
                                 </>
                             )}
                             <div className="turn-indicator" style={{ display: 'none' }}>Modo Edición - Sin Turnos</div>
-                            {gameStarted && <div className="timer"><div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div></div>}
+                            {gameState.gameStarted && <div className="timer"><div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div></div>}
                             {countdownRef.current > 0 && <div className="countdown">{countdownRef.current}</div>}
-                            {!gameStarted && <div className="waiting-message">Esperando al segundo jugador...</div>}
+                            {!gameState.gameStarted && <div className="waiting-message">Esperando al segundo jugador...</div>}
                         </div>
                     </div>
                 );
@@ -718,7 +769,7 @@
                     )}
                     {screen === 'rankings' && <Rankings setScreen={setScreen} />}
                     {screen === 'credits' && <Credits setScreen={setScreen} />}
-                    {screen === 'result' && <Result winner={winner} name={name} setScreen={setScreen} />}
+                    {screen === 'result' && <Result winner={gameState.winner} name={name} setScreen={setScreen} />}
                 </div>
             );
         };
