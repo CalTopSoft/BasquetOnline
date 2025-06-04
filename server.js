@@ -288,104 +288,114 @@ const endGame = async (room, roomName) => {
 };
 
 wss.on('connection', (ws) => {
-    ws.on('message', async (message) => {
-        const data = JSON.parse(message);
+    ws.isAlive = true;
 
-        if (data.type === 'join') {
-            const room = rooms[data.room];
-            if (room.players.length < 2) {
-                const playerIndex = room.players.length;
-                room.players.push({ ws, name: data.name, index: playerIndex });
-                
-                ws.send(JSON.stringify({ 
-                    type: 'joined', 
-                    room: data.room, 
-                    players: room.players.map(p => p.name),
-                    playerIndex: playerIndex
-                }));
-                
-                if (room.players.length === 2) {
-                    room.gameStarted = true;
-                    room.gameEnded = false;
-                    room.turn = 0;
-                    room.attempts = [0, 0];
-                    room.totalAttempts = [0, 0];
-                    room.scores = [0, 0];
-                    room.round = 1;
-                    room.timer = 8;
-                    room.lastTimerUpdate = Date.now();
-                    room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
-                    room.shotInProgress = false;
-                    room.hoopX = 300;
-                    room.lastUpdate = { 
-                        scores: [0, 0], 
-                        round: 1, 
-                        turn: 0, 
-                        attempts: [0, 0], 
-                        players: room.players.map(p => p.name), 
-                        ball: room.ball, 
-                        hoopX: 300 
-                    };
+    ws.on('pong', () => {
+        ws.isAlive = true;
+    });
+
+    ws.on('message', async (message) => {
+        try {
+            const data = JSON.parse(message);
+
+            if (data.type === 'join') {
+                const room = rooms[data.room];
+                if (room.players.length < 2) {
+                    const playerIndex = room.players.length;
+                    room.players.push({ ws, name: data.name, index: playerIndex });
                     
-                    room.players.forEach(p => {
-                        if (p.ws.readyState === WebSocket.OPEN) {
-                            p.ws.send(JSON.stringify({ 
-                                type: 'start', 
-                                turn: room.turn, 
-                                ball: room.ball, 
-                                scores: room.scores, 
-                                round: room.round, 
-                                attempts: room.attempts,
-                                players: room.players.map(player => player.name)
+                    ws.send(JSON.stringify({ 
+                        type: 'joined', 
+                        room: data.room, 
+                        players: room.players.map(p => p.name),
+                        playerIndex: playerIndex
+                    }));
+                    
+                    if (room.players.length === 2) {
+                        room.gameStarted = true;
+                        room.gameEnded = false;
+                        room.turn = 0;
+                        room.attempts = [0, 0];
+                        room.totalAttempts = [0, 0];
+                        room.scores = [0, 0];
+                        room.round = 1;
+                        room.timer = 8;
+                        room.lastTimerUpdate = Date.now();
+                        room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
+                        room.shotInProgress = false;
+                        room.hoopX = 300;
+                        room.lastUpdate = { 
+                            scores: [0, 0], 
+                            round: 1, 
+                            turn: 0, 
+                            attempts: [0, 0], 
+                            players: room.players.map(p => p.name), 
+                            ball: room.ball, 
+                            hoopX: 300 
+                        };
+                        
+                        room.players.forEach(p => {
+                            if (p.ws.readyState === WebSocket.OPEN) {
+                                p.ws.send(JSON.stringify({ 
+                                    type: 'start', 
+                                    turn: room.turn, 
+                                    ball: room.ball, 
+                                    scores: room.scores, 
+                                    round: room.round, 
+                                    attempts: room.attempts,
+                                    players: room.players.map(player => player.name)
+                                }));
+                            }
+                        });
+                    }
+                    
+                    wss.clients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN) {
+                            client.send(JSON.stringify({ 
+                                type: 'rooms', 
+                                rooms: { 
+                                    room1: { players: rooms.room1.players.length }, 
+                                    room2: { players: rooms.room2.players.length } 
+                                }
                             }));
                         }
                     });
+                } else {
+                    ws.send(JSON.stringify({ type: 'full' }));
                 }
+            }
+
+            if (data.type === 'shot') {
+                const room = rooms[data.room];
                 
-                wss.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({ 
-                            type: 'rooms', 
-                            rooms: { 
-                                room1: { players: rooms.room1.players.length }, 
-                                room2: { players: rooms.room2.players.length } 
-                            }
-                        }));
-                    }
-                });
-            } else {
-                ws.send(JSON.stringify({ type: 'full' }));
-            }
-        }
-
-        if (data.type === 'shot') {
-            const room = rooms[data.room];
-            
-            if (room.turn !== data.playerIndex || !room.gameStarted || room.gameEnded || 
-                room.ball.thrown || room.shotInProgress || room.attempts[room.turn] >= 5) {
-                return;
-            }
-
-            room.ball.vx = data.ballVX;
-            room.ball.vy = data.ballVY;
-            room.ball.thrown = true;
-            room.ball.rotation = 0;
-            room.bounceCount = 0;
-            room.shotInProgress = true;
-        }
-
-        if (data.type === 'getRankings') {
-            ws.send(JSON.stringify({ type: 'rankings', rankings }));
-        }
-
-        if (data.type === 'getRooms') {
-            ws.send(JSON.stringify({ 
-                type: 'rooms', 
-                rooms: { 
-                    room1: { players: rooms.room1.players.length }, 
-                    room2: { players: rooms.room2.players.length } 
+                if (room.turn !== data.playerIndex || !room.gameStarted || room.gameEnded || 
+                    room.ball.thrown || room.shotInProgress || room.attempts[room.turn] >= 5) {
+                    return;
                 }
-            }));
+
+                room.ball.vx = data.ballVX;
+                room.ball.vy = data.ballVY;
+                room.ball.thrown = true;
+                room.ball.rotation = 0;
+                room.bounceCount = 0;
+                room.shotInProgress = true;
+            }
+
+            if (data.type === 'getRankings') {
+                ws.send(JSON.stringify({ type: 'rankings', rankings }));
+            }
+
+            if (data.type === 'getRooms') {
+                ws.send(JSON.stringify({ 
+                    type: 'rooms', 
+                    rooms: { 
+                        room1: { players: rooms.room1.players.length }, 
+                        room2: { players: rooms.room2.players.length } 
+                    }
+                }));
+            }
+        } catch (err) {
+            console.error("Error processing message:", err);
         }
     });
 
@@ -440,6 +450,20 @@ const resetRoom = (room) => {
     room.shotInProgress = false;
     room.lastUpdate = { scores: [0, 0], round: 1, turn: 0, attempts: [0, 0], players: [], ball: null, hoopX: 300 };
 };
+
+const pingInterval = setInterval(() => {
+    wss.clients.forEach(ws => {
+        if (!ws.isAlive) {
+            return ws.terminate();
+        }
+        ws.isAlive = false;
+        ws.ping();
+    });
+}, 30000);
+
+wss.on('close', () => {
+    clearInterval(pingInterval);
+});
 
 setInterval(updateGameState, 20);
 
