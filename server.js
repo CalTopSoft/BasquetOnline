@@ -10,8 +10,8 @@ const rooms = {
         players: [], 
         scores: [0, 0], 
         round: 1, 
-        attempts: [0, 0],
-        totalAttempts: [0, 0],
+        attempts: [0, 0], // Intentos por jugador en la ronda actual
+        totalAttempts: [0, 0], // Total de intentos por jugador
         turn: 0, 
         afk: [0, 0], 
         ball: { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 }, 
@@ -22,8 +22,7 @@ const rooms = {
         bounceCount: 0,
         gameStarted: false,
         gameEnded: false,
-        shotInProgress: false,
-        lastUpdate: { scores: [0, 0], round: 1, turn: 0, attempts: [0, 0], players: [], ball: null, hoopX: 300 }
+        shotInProgress: false
     },
     room2: { 
         players: [], 
@@ -41,107 +40,96 @@ const rooms = {
         bounceCount: 0,
         gameStarted: false,
         gameEnded: false,
-        shotInProgress: false,
-        lastUpdate: { scores: [0, 0], round: 1, turn: 0, attempts: [0, 0], players: [], ball: null, hoopX: 300 }
+        shotInProgress: false
     }
 };
 let rankings = [];
 
 const loadRankings = async () => {
-    console.log("DEBUG: Loading rankings");
     try {
         const data = await fs.readFile('rankings.json', 'utf8');
         rankings = JSON.parse(data);
-        console.log("DEBUG: Rankings loaded:", rankings);
     } catch (err) {
-        console.error("DEBUG: Error loading rankings:", err);
         rankings = [];
     }
 };
 
 const saveRankings = async () => {
-    console.log("DEBUG: Saving rankings");
-    try {
-        await fs.writeFile('rankings.json', JSON.stringify(rankings, null, 2));
-        console.log("DEBUG: Rankings saved");
-    } catch (err) {
-        console.error("DEBUG: Error saving rankings:", err);
-    }
+    await fs.writeFile('rankings.json', JSON.stringify(rankings, null, 2));
 };
 
 loadRankings();
 
+// Actualizar el estado del juego cada 20ms (50 FPS)
 const updateGameState = () => {
     for (const roomName in rooms) {
         const room = rooms[roomName];
         if (!room.gameStarted || room.gameEnded) continue;
 
-        console.log(`DEBUG: Updating game state for ${roomName}, round: ${room.round}, turn: ${room.turn}`);
         const now = Date.now();
 
+        // Actualizar temporizador solo si no hay un tiro en progreso
         if (now - room.lastTimerUpdate >= 1000 && !room.ball.thrown && !room.shotInProgress) {
             room.timer -= 1;
             room.lastTimerUpdate = now;
-            console.log(`DEBUG: Timer updated for ${roomName}: ${room.timer}`);
             if (room.timer <= 0) {
-                console.log(`DEBUG: Time out for ${roomName}, passing turn`);
+                // Tiempo agotado, pasar turno
                 passTurn(room, roomName);
             }
         }
 
-        // Aro fijo en ronda 1, móvil en rondas 2 y 3
+        // Actualizar posición del aro - SIEMPRE se mueve desde ronda 1
+        let hoopSpeed = 0.8; // Velocidad base
         if (room.round >= 2) {
-            let hoopSpeed = room.round === 3 ? 1.5 : 1.2;
-            room.hoopX += room.hoopDirection * hoopSpeed;
-            if (room.hoopX >= 450 || room.hoopX <= 150) {
-                room.hoopDirection *= -1;
-                console.log(`DEBUG: Hoop direction changed for ${roomName}`);
-            }
-        } else {
-            room.hoopX = 300; // Fijo en ronda 1
+            hoopSpeed = room.round === 3 ? 1.5 : 1.2;
+        }
+        
+        room.hoopX += room.hoopDirection * hoopSpeed;
+        if (room.hoopX >= 450 || room.hoopX <= 150) {
+            room.hoopDirection *= -1;
         }
 
+        // Actualizar posición del balón si está lanzado
         if (room.ball.thrown) {
             room.shotInProgress = true;
-            console.log(`DEBUG: Ball thrown in ${roomName}, position: (${room.ball.x}, ${room.ball.y})`);
-
+            
             room.ball.x += room.ball.vx;
             room.ball.y += room.ball.vy;
-            room.ball.vy += 0.15;
-            room.ball.vx *= 0.996;
+            room.ball.vy += 0.15; // Gravedad
+            room.ball.vx *= 0.996; // Fricción del aire
             room.ball.vy *= 0.988;
 
             const totalSpeed = Math.sqrt(room.ball.vx * room.ball.vx + room.ball.vy * room.ball.vy);
             room.ball.rotation += totalSpeed * 0.05;
 
+            // Colisiones con paredes laterales
             if (room.ball.x - 30 <= 0 || room.ball.x + 30 >= 600) {
                 if (room.ball.x - 30 <= 0) room.ball.x = 30;
                 else room.ball.x = 600 - 30;
                 room.ball.vx *= -0.8;
                 room.ball.vy += (Math.random() - 0.5) * 1;
-                console.log(`DEBUG: Ball hit wall in ${roomName}`);
             }
 
+            // Colisión con el suelo
             if (room.ball.y + 30 >= 370 && room.bounceCount < 3) {
                 room.ball.y = 370 - 30;
                 room.ball.vy = -Math.abs(room.ball.vy) * 0.75;
                 if (Math.abs(room.ball.vx) > 0.1) room.ball.vx *= 0.9;
                 else room.ball.vx += (Math.random() - 0.5) * 3;
-
+                
                 const centerOffset = room.ball.x - 300;
                 room.ball.vx += centerOffset * 0.03;
                 room.bounceCount++;
-                console.log(`DEBUG: Ball bounced ${room.bounceCount} times in ${roomName}`);
-
+                
                 if (room.bounceCount === 3) {
-                    console.log(`DEBUG: Max bounces reached in ${roomName}, finalizing shot`);
+                    // Finalizar tiro después de 3 rebotes
                     finalizarTiro(room, roomName, false);
                 }
             } else if (room.ball.y > 400 && room.bounceCount >= 3) {
-                console.log(`DEBUG: Ball out of bounds in ${roomName}, finalizing shot`);
                 finalizarTiro(room, roomName, false);
             }
 
+            // Detección de canasta
             const hoopLeft = room.hoopX - 75 / 2;
             const hoopRight = room.hoopX + 75 / 2;
             const hoopTop = 113;
@@ -158,7 +146,6 @@ const updateGameState = () => {
             );
 
             if (ballInHoopArea) {
-                console.log(`DEBUG: Ball in hoop area in ${roomName}`);
                 const centerZoneWidth = 50;
                 const centerZoneHeight = 1;
                 const isInCenter = (
@@ -167,11 +154,12 @@ const updateGameState = () => {
                 );
 
                 if (isInCenter) {
+                    // ¡CANASTA!
                     room.scores[room.turn] += 2;
                     room.afk[room.turn] = 0;
-                    console.log(`DEBUG: Score! Player ${room.turn} scored in ${roomName}, scores: ${room.scores}`);
                     finalizarTiro(room, roomName, true);
                 } else {
+                    // Rebote en el aro
                     const hitLeftCorner = Math.abs(room.ball.x - hoopLeft) < 15 && Math.abs(room.ball.y - hoopTop) < 15;
                     const hitRightCorner = Math.abs(room.ball.x - hoopRight) < 15 && Math.abs(room.ball.y - hoopTop) < 15;
                     if (hitLeftCorner || hitRightCorner) {
@@ -179,99 +167,94 @@ const updateGameState = () => {
                         room.ball.vx = bounceDirection * Math.abs(room.ball.vx) * 1.3 + bounceDirection * 3;
                         room.ball.vy *= -0.7;
                         if (room.ball.vy > -2) room.ball.vy = 2;
-                        console.log(`DEBUG: Ball hit hoop corner in ${roomName}`);
                     }
                 }
             }
         }
 
-        const currentState = {
-            scores: room.scores,
-            turn: room.turn,
-            ball: room.ball,
-            timer: room.timer,
-            hoopX: room.hoopX,
-            round: room.round,
-            attempts: room.attempts,
-            players: room.players.map(player => player.name)
-        };
-
-        if (JSON.stringify(currentState) !== JSON.stringify(room.lastUpdate)) {
-            console.log(`DEBUG: Sending state update for ${roomName}:`, currentState);
-            room.players.forEach(p => {
-                if (p.ws.readyState === WebSocket.OPEN) {
-                    p.ws.send(JSON.stringify({
-                        type: 'update',
-                        ...currentState
-                    }));
-                }
-            });
-            room.lastUpdate = { ...currentState };
-        }
+        // Enviar estado actualizado a los clientes
+        room.players.forEach(p => {
+            if (p.ws.readyState === WebSocket.OPEN) {
+                p.ws.send(JSON.stringify({
+                    type: 'update',
+                    scores: room.scores,
+                    turn: room.turn,
+                    ball: room.ball,
+                    timer: room.timer,
+                    hoopX: room.hoopX,
+                    round: room.round,
+                    attempts: room.attempts,
+                    players: room.players.map(player => player.name)
+                }));
+            }
+        });
     }
 };
 
+// Función para finalizar un tiro
 const finalizarTiro = (room, roomName, wasSuccessful) => {
-    console.log(`DEBUG: Finalizing shot in ${roomName}, successful: ${wasSuccessful}`);
     room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
     room.bounceCount = 0;
     room.shotInProgress = false;
     room.timer = 8;
     room.lastTimerUpdate = Date.now();
-
+    
+    // Incrementar intentos del jugador actual
     room.attempts[room.turn]++;
     room.totalAttempts[room.turn]++;
-
+    
+    // Pasar al siguiente turno o verificar fin de ronda
     passTurn(room, roomName);
 };
 
+// Función para pasar el turno
 const passTurn = async (room, roomName) => {
-    console.log(`DEBUG: Passing turn in ${roomName}, current attempts: ${room.attempts}`);
+    // Si el jugador actual aún tiene intentos, continuar con él
     if (room.attempts[room.turn] < 5) {
         room.timer = 8;
         room.lastTimerUpdate = Date.now();
         return;
     }
-
+    
+    // Si el otro jugador también completó sus 5 intentos, avanzar ronda
     const otherPlayer = (room.turn + 1) % 2;
     if (room.attempts[otherPlayer] >= 5) {
+        // Ambos jugadores completaron sus intentos - nueva ronda o fin de juego
         if (room.round >= 3) {
-            console.log(`DEBUG: All rounds completed in ${roomName}, ending game`);
             await endGame(room, roomName);
         } else {
+            // Nueva ronda
             room.round++;
-            room.attempts = [0, 0];
-            room.turn = 0;
+            room.attempts = [0, 0]; // Resetear intentos para nueva ronda
+            room.turn = 0; // Empezar con jugador 1
             room.timer = 8;
             room.lastTimerUpdate = Date.now();
-            room.hoopX = 300;
-
-            console.log(`DEBUG: Starting new round ${room.round} in ${roomName}`);
+            
             room.players.forEach(p => {
                 if (p.ws.readyState === WebSocket.OPEN) {
-                    p.ws.send(JSON.stringify({
-                        type: 'newRound',
+                    p.ws.send(JSON.stringify({ 
+                        type: 'newRound', 
                         round: room.round,
                         turn: room.turn,
-                        attempts: room.attempts
+                        attempts: room.attempts 
                     }));
                 }
             });
         }
     } else {
+        // Cambiar al otro jugador
         room.turn = otherPlayer;
         room.timer = 8;
         room.lastTimerUpdate = Date.now();
-        console.log(`DEBUG: Turn passed to player ${room.turn} in ${roomName}`);
     }
 };
 
+// Función para terminar el juego
 const endGame = async (room, roomName) => {
-    console.log(`DEBUG: Ending game in ${roomName}`);
     room.gameEnded = true;
-
+    
     let winner = room.scores[0] > room.scores[1] ? 0 : room.scores[1] > room.scores[0] ? 1 : -1;
-
+    
     room.players.forEach(p => {
         if (p.ws.readyState === WebSocket.OPEN) {
             if (winner === -1) {
@@ -283,33 +266,37 @@ const endGame = async (room, roomName) => {
             }
         }
     });
-
+    
+    // Actualizar rankings
     if (winner === -1) {
+        // Empate - ambos jugadores van al ranking
         if (room.players[0]) rankings.push({ name: room.players[0].name, score: room.scores[0] });
         if (room.players[1]) rankings.push({ name: room.players[1].name, score: room.scores[1] });
     } else if (room.players[winner]) {
         rankings.push({ name: room.players[winner].name, score: room.scores[winner] });
     }
-
+    
     rankings.sort((a, b) => b.score - a.score);
     rankings = rankings.slice(0, 5);
     await saveRankings();
-
+    
+    // Enviar rankings actualizados
     wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify({ type: 'rankings', rankings }));
         }
     });
-
+    
     resetRoom(room);
-
+    
+    // Actualizar conteo de salas
     wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({
-                type: 'rooms',
-                rooms: {
-                    room1: { players: rooms.room1.players.length },
-                    room2: { players: rooms.room2.players.length }
+            client.send(JSON.stringify({ 
+                type: 'rooms', 
+                rooms: { 
+                    room1: { players: rooms.room1.players.length }, 
+                    room2: { players: rooms.room2.players.length } 
                 }
             }));
         }
@@ -317,156 +304,126 @@ const endGame = async (room, roomName) => {
 };
 
 wss.on('connection', (ws) => {
-    console.log("DEBUG: New WebSocket connection");
-    ws.isAlive = true;
-
-    ws.on('pong', () => {
-        ws.isAlive = true;
-        console.log("DEBUG: Pong received");
-    });
-
     ws.on('message', async (message) => {
-        console.log("DEBUG: WebSocket message received on server");
-        try {
-            const data = JSON.parse(message);
-            console.log("DEBUG: Server message data:", data);
+        const data = JSON.parse(message);
 
-            if (data.type === 'join') {
-                console.log(`DEBUG: Player joining ${data.room}`);
-                const room = rooms[data.room];
-                if (room.players.length < 2) {
-                    const playerIndex = room.players.length;
-                    room.players.push({ ws, name: data.name, index: playerIndex });
-
-                    ws.send(JSON.stringify({
-                        type: 'joined',
-                        room: data.room,
-                        players: room.players.map(p => p.name),
-                        playerIndex: playerIndex
-                    }));
-                    console.log(`DEBUG: Player ${data.name} joined ${data.room} as player ${playerIndex}`);
-
-                    if (room.players.length === 2) {
-                        room.gameStarted = true;
-                        room.gameEnded = false;
-                        room.turn = 0;
-                        room.attempts = [0, 0];
-                        room.totalAttempts = [0, 0];
-                        room.scores = [0, 0];
-                        room.round = 1;
-                        room.timer = 8;
-                        room.lastTimerUpdate = Date.now();
-                        room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
-                        room.shotInProgress = false;
-                        room.hoopX = 300;
-                        room.lastUpdate = {
-                            scores: [0, 0],
-                            round: 1,
-                            turn: 0,
-                            attempts: [0, 0],
-                            players: room.players.map(p => p.name),
-                            ball: room.ball,
-                            hoopX: 300
-                        };
-
-                        console.log(`DEBUG: Game started in ${data.room}`);
-                        room.players.forEach(p => {
-                            if (p.ws.readyState === WebSocket.OPEN) {
-                                p.ws.send(JSON.stringify({
-                                    type: 'start',
-                                    turn: room.turn,
-                                    ball: room.ball,
-                                    scores: room.scores,
-                                    round: room.round,
-                                    attempts: room.attempts,
-                                    players: room.players.map(player => player.name)
-                                }));
-                            }
-                        });
-                    }
-
-                    wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN) {
-                            client.send(JSON.stringify({
-                                type: 'rooms',
-                                rooms: {
-                                    room1: { players: rooms.room1.players.length },
-                                    room2: { players: rooms.room2.players.length }
-                                }
+        if (data.type === 'join') {
+            const room = rooms[data.room];
+            if (room.players.length < 2) {
+                const playerIndex = room.players.length;
+                room.players.push({ ws, name: data.name, index: playerIndex });
+                
+                ws.send(JSON.stringify({ 
+                    type: 'joined', 
+                    room: data.room, 
+                    players: room.players.map(p => p.name),
+                    playerIndex: playerIndex
+                }));
+                
+                if (room.players.length === 2) {
+                    // Iniciar juego
+                    room.gameStarted = true;
+                    room.gameEnded = false;
+                    room.turn = 0;
+                    room.attempts = [0, 0];
+                    room.totalAttempts = [0, 0];
+                    room.scores = [0, 0];
+                    room.round = 1;
+                    room.timer = 8;
+                    room.lastTimerUpdate = Date.now();
+                    room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
+                    room.shotInProgress = false;
+                    
+                    room.players.forEach(p => {
+                        if (p.ws.readyState === WebSocket.OPEN) {
+                            p.ws.send(JSON.stringify({ 
+                                type: 'start', 
+                                turn: room.turn, 
+                                ball: room.ball, 
+                                scores: room.scores, 
+                                round: room.round, 
+                                attempts: room.attempts,
+                                players: room.players.map(player => player.name)
                             }));
                         }
                     });
-                } else {
-                    console.log(`DEBUG: Room ${data.room} is full`);
-                    ws.send(JSON.stringify({ type: 'full' }));
                 }
-            }
-
-            if (data.type === 'shot') {
-                console.log(`DEBUG: Shot received in ${data.room} from player ${data.playerIndex}`);
-                const room = rooms[data.room];
-
-                if (room.turn !== data.playerIndex || !room.gameStarted || room.gameEnded ||
-                    room.ball.thrown || room.shotInProgress || room.attempts[room.turn] >= 5) {
-                    console.log(`DEBUG: Invalid shot attempt in ${data.room}`);
-                    return;
-                }
-
-                room.ball.vx = data.ballVX;
-                room.ball.vy = data.ballVY;
-                room.ball.thrown = true;
-                room.ball.rotation = 0;
-                room.bounceCount = 0;
-                room.shotInProgress = true;
-                console.log(`DEBUG: Shot processed in ${data.room}`);
-            }
-
-            if (data.type === 'getRankings') {
-                console.log("DEBUG: Sending rankings to client");
-                ws.send(JSON.stringify({ type: 'rankings', rankings }));
-            }
-
-            if (data.type === 'getRooms') {
-                console.log("DEBUG: Sending room status to client");
-                ws.send(JSON.stringify({
-                    type: 'rooms',
-                    rooms: {
-                        room1: { players: rooms.room1.players.length },
-                        room2: { players: rooms.room2.players.length }
+                
+                // Actualizar conteo de salas
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify({ 
+                            type: 'rooms', 
+                            rooms: { 
+                                room1: { players: rooms.room1.players.length }, 
+                                room2: { players: rooms.room2.players.length } 
+                            }
+                        }));
                     }
-                }));
+                });
+            } else {
+                ws.send(JSON.stringify({ type: 'full' }));
             }
-        } catch (err) {
-            console.error("DEBUG: Error processing server message:", err);
+        }
+
+        if (data.type === 'shot') {
+            const room = rooms[data.room];
+            
+            // Verificar que es el turno correcto y el jugador tiene intentos restantes
+            if (room.turn !== data.playerIndex || !room.gameStarted || room.gameEnded || 
+                room.ball.thrown || room.shotInProgress || room.attempts[room.turn] >= 5) {
+                return;
+            }
+
+            // Realizar el tiro
+            room.ball.vx = data.ballVX;
+            room.ball.vy = data.ballVY;
+            room.ball.thrown = true;
+            room.ball.rotation = 0;
+            room.bounceCount = 0;
+            room.shotInProgress = true;
+        }
+
+        if (data.type === 'getRankings') {
+            ws.send(JSON.stringify({ type: 'rankings', rankings }));
+        }
+
+        if (data.type === 'getRooms') {
+            ws.send(JSON.stringify({ 
+                type: 'rooms', 
+                rooms: { 
+                    room1: { players: rooms.room1.players.length }, 
+                    room2: { players: rooms.room2.players.length } 
+                }
+            }));
         }
     });
 
     ws.on('close', () => {
-        console.log("DEBUG: WebSocket connection closed");
         for (const roomName in rooms) {
             const room = rooms[roomName];
             const index = room.players.findIndex(p => p.ws === ws);
             if (index !== -1) {
-                console.log(`DEBUG: Player disconnected from ${roomName}`);
                 room.players.splice(index, 1);
-
+                
                 if (room.gameStarted && room.players.length < 2) {
+                    // Jugador desconectado durante partida
                     room.players.forEach(p => {
                         if (p.ws.readyState === WebSocket.OPEN) {
                             p.ws.send(JSON.stringify({ type: 'end', winner: 'Desconectado' }));
                         }
                     });
                     resetRoom(room);
-                    console.log(`DEBUG: Room ${roomName} reset due to disconnection`);
                 }
-
+                
+                // Actualizar conteo de salas
                 wss.clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({
-                            type: 'rooms',
-                            rooms: {
-                                room1: { players: rooms.room1.players.length },
-                                room2: { players: rooms.room2.players.length }
+                        client.send(JSON.stringify({ 
+                            type: 'rooms', 
+                            rooms: { 
+                                room1: { players: rooms.room1.players.length }, 
+                                room2: { players: rooms.room2.players.length } 
                             }
                         }));
                     }
@@ -474,10 +431,9 @@ wss.on('connection', (ws) => {
             }
         }
     });
-};
+});
 
 const resetRoom = (room) => {
-    console.log("DEBUG: Resetting room");
     room.players = [];
     room.scores = [0, 0];
     room.round = 1;
@@ -494,28 +450,11 @@ const resetRoom = (room) => {
     room.gameStarted = false;
     room.gameEnded = false;
     room.shotInProgress = false;
-    room.lastUpdate = { scores: [0, 0], round: 1, turn: 0, attempts: [0, 0], players: [], ball: null, hoopX: 300 };
 };
 
-const pingInterval = setInterval(() => {
-    console.log("DEBUG: Sending ping to clients");
-    wss.clients.forEach(ws => {
-        if (!ws.isAlive) {
-            console.log("DEBUG: Terminating inactive client");
-            return ws.terminate();
-        }
-        ws.isAlive = false;
-        ws.ping();
-    });
-}, 30000);
-
-wss.on('close', () => {
-    console.log("DEBUG: WebSocket server closed");
-    clearInterval(pingInterval);
-});
-
+// Actualizar el juego cada 20ms (50 FPS)
 setInterval(updateGameState, 20);
 
 server.listen(process.env.PORT || 8080, () => {
-    console.log('DEBUG: Server running on port 8080');
+    console.log('Server running on port 8080');
 });
