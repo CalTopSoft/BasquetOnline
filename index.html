@@ -85,8 +85,8 @@
         }
         .turn {
             position: absolute;
-            top: -65px;
-            right: -170px;
+            top: 425px;
+            right: 180px;
             font-size: 16px;
             color: #fff;
             padding: 8px 16px;
@@ -106,9 +106,29 @@
             position: absolute;
             top: 20px;
             left: 20px;
-            font-size: 18px;
-            color: white;
-            text-shadow: 1px 1px 2px black;
+            font-size: 24px;
+            font-weight: 900;
+            color: #ff00d4;
+            padding: 8px 16px;
+            background: linear-gradient(145deg, #1a001f, #3b003d);
+            border: 2px solid #ff00d4;
+            border-radius: 12px;
+            box-shadow:
+                0 0 10px #ff00d4,
+                0 0 20px #ff00d4,
+                2px 2px 8px black;
+            text-shadow:
+                2px 2px 4px black,
+                0 0 10px #ff00d4;
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 1px;
+            z-index: 1000;
+            user-select: none;
+            transition: transform 0.15s ease;
+        }
+        .round:hover {
+            transform: scale(1.1);
+            cursor: default;
         }
         .timer {
             position: absolute;
