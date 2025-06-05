@@ -78,15 +78,15 @@ const updateGameState = () => {
             }
         }
 
-        // Actualizar posición del aro - SIEMPRE se mueve desde ronda 1
-        let hoopSpeed = 0.8; // Velocidad base
         if (room.round >= 2) {
-            hoopSpeed = room.round === 3 ? 1.5 : 1.2;
-        }
-        
-        room.hoopX += room.hoopDirection * hoopSpeed;
-        if (room.hoopX >= 450 || room.hoopX <= 150) {
-            room.hoopDirection *= -1;
+            let hoopSpeed = room.round === 3 ? 1.5 : 1.2;
+            room.hoopX += room.hoopDirection * hoopSpeed;
+            if (room.hoopX >= 450 || room.hoopX <= 150) {
+                room.hoopDirection *= -1;
+            }
+        } else {
+            // En ronda 1, mantener el aro fijo en el centro
+            room.hoopX = 300;
         }
 
         // Actualizar posición del balón si está lanzado
@@ -153,10 +153,25 @@ const updateGameState = () => {
                     Math.abs(room.ball.y - hoopCenterY) < centerZoneHeight / 2
                 );
 
-                if (isInCenter) {
+            if (isInCenter) {
                     // ¡CANASTA!
+                    const previousScore = room.scores[room.turn];
                     room.scores[room.turn] += 2;
                     room.afk[room.turn] = 0;
+            
+                    // Enviar actualización inmediata del puntaje
+                    room.players.forEach(p => {
+                        if (p.ws.readyState === WebSocket.OPEN) {
+                            p.ws.send(JSON.stringify({
+                                type: 'scoreUpdate',
+                                scores: room.scores,
+                                turn: room.turn,
+                                previousScore: previousScore,
+                                newScore: room.scores[room.turn]
+                            }));
+                        }
+                    });
+            
                     finalizarTiro(room, roomName, true);
                 } else {
                     // Rebote en el aro
@@ -213,6 +228,22 @@ const passTurn = async (room, roomName) => {
     if (room.attempts[room.turn] < 5) {
         room.timer = 8;
         room.lastTimerUpdate = Date.now();
+        // Enviar actualización de estado
+        room.players.forEach(p => {
+            if (p.ws.readyState === WebSocket.OPEN) {
+                p.ws.send(JSON.stringify({
+                    type: 'update',
+                    scores: room.scores,
+                    turn: room.turn,
+                    ball: room.ball,
+                    timer: room.timer,
+                    hoopX: room.hoopX,
+                    round: room.round,
+                    attempts: room.attempts,
+                    players: room.players.map(player => player.name)
+                }));
+            }
+        });
         return;
     }
     
@@ -230,13 +261,21 @@ const passTurn = async (room, roomName) => {
             room.timer = 8;
             room.lastTimerUpdate = Date.now();
             
+            // Resetear posición del aro si es ronda 1
+            if (room.round === 1) {
+                room.hoopX = 300;
+                room.hoopDirection = 1;
+            }
+            
             room.players.forEach(p => {
                 if (p.ws.readyState === WebSocket.OPEN) {
                     p.ws.send(JSON.stringify({ 
                         type: 'newRound', 
                         round: room.round,
                         turn: room.turn,
-                        attempts: room.attempts 
+                        attempts: room.attempts,
+                        scores: room.scores,
+                        players: room.players.map(player => player.name)
                     }));
                 }
             });
@@ -246,8 +285,26 @@ const passTurn = async (room, roomName) => {
         room.turn = otherPlayer;
         room.timer = 8;
         room.lastTimerUpdate = Date.now();
+        
+        // Enviar actualización de cambio de turno
+        room.players.forEach(p => {
+            if (p.ws.readyState === WebSocket.OPEN) {
+                p.ws.send(JSON.stringify({
+                    type: 'update',
+                    scores: room.scores,
+                    turn: room.turn,
+                    ball: room.ball,
+                    timer: room.timer,
+                    hoopX: room.hoopX,
+                    round: room.round,
+                    attempts: room.attempts,
+                    players: room.players.map(player => player.name)
+                }));
+            }
+        });
     }
 };
+
 
 // Función para terminar el juego
 const endGame = async (room, roomName) => {
