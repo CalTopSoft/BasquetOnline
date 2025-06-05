@@ -208,11 +208,12 @@
             const init = () => {
                 backgroundSound = new Audio('sound/background.mp3');
                 backgroundSound.loop = true;
-                backgroundSound.volume = 0.3;
+                backgroundSound.volume = 0.4;
 
                 bounceSound = new Audio('sound/ball_bounce.mp3');
                 hoopHitSound = new Audio('sound/hoop_hit.mp3');
                 wheelsSound = new Audio('sound/wheels.mp3');
+                wheelsSound.volume = 0.3; // REDUCIR este sonido que está muy alto
                 scoreSound = new Audio('sound/score.mp3');
                 scoreAddSound = new Audio('sound/score_add.mp3');
                 winSound = new Audio('sound/win.mp3');
@@ -328,7 +329,10 @@
                         roundRef.current = data.round;
                         playersRef.current = data.players;
                         turnRef.current = data.turn;
-
+                        
+                        // Forzar re-render del componente para actualizar UI
+                        setScreen(screen => screen);
+                    
                         if (lastBallStateRef.current && data.ball) {
                             if (
                                 lastBallStateRef.current.thrown &&
@@ -366,6 +370,17 @@
 
                     if (data.type === 'newRound') {
                         roundRef.current = data.round;
+                        scoresRef.current = data.scores;
+                        playersRef.current = data.players;
+                        turnRef.current = data.turn;
+                        // Forzar re-render
+                        setScreen(screen => screen);
+                    }
+                    
+                    if (data.type === 'scoreUpdate') {
+                        scoresRef.current = data.scores;
+                        // Forzar re-render inmediato para mostrar puntaje
+                        setScreen(screen => screen);
                     }
 
                     if (data.type === 'end') {
@@ -467,6 +482,7 @@
             };
 
             const Gameplay = ({ name }) => {
+                const [forceUpdate, setForceUpdate] = useState(0);
                 const sketchRef = useRef(null);
                 const p5Instance = useRef(null);
                 const timerRef = useRef(8);
@@ -598,25 +614,21 @@
                 useEffect(() => {
                     const handleMessage = (event) => {
                         const data = JSON.parse(event.data);
-                        if (data.type === 'update') {
+                        if (data.type === 'update' || data.type === 'newRound' || data.type === 'scoreUpdate') {
                             ballRef.current = { ...ballRef.current, ...data.ball };
                             hoopXRef.current = data.hoopX;
                             timerRef.current = data.timer;
                             attemptsRef.current = data.attempts;
-
-                            // Limitar la frecuencia de updates para la UI
-                            updateCounterRef.current += 1;
-                            if (updateCounterRef.current % 5 === 0) {
-                                // Forzar un re-render cada 5 updates (aproximadamente cada 100ms)
-                                sketchRef.current.dispatchEvent(new Event('update'));
-                            }
+                            
+                            // Forzar re-render del componente
+                            setForceUpdate(prev => prev + 1);
                         }
                     };
-
+            
                     if (wsRef.current) {
                         wsRef.current.addEventListener('message', handleMessage);
                     }
-
+            
                     return () => {
                         if (wsRef.current) {
                             wsRef.current.removeEventListener('message', handleMessage);
