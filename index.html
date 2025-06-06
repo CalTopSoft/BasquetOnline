@@ -8,206 +8,8 @@
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background-color: #87CEEB;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-        #root {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .container {
-            text-align: center;
-            background-color: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-            max-width: 600px;
-            width: 100%;
-        }
-        .gameplay {
-            width: 750px;
-            height: 550px;
-            position: relative;
-            overflow: hidden;
-            background: url('img/fondo/background.png') no-repeat center center;
-            background-size: cover;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .game-container {
-            position: relative;
-            width: 600px;
-            height: 400px;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            margin: 10px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        input {
-            padding: 10px;
-            font-size: 16px;
-            margin: 10px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-        }
-        .score {
-            position: absolute;
-            top: 380px;
-            left: 220px;
-            font-size: 20px;
-            color: rgb(0, 16, 243);
-            text-shadow: 1px 1px 2px black;
-        }
-        .turn {
-            position: absolute;
-            top: 425px;
-            right: 180px;
-            font-size: 16px;
-            color: #fff;
-            padding: 8px 16px;
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 10px;
-            text-shadow: 2px 2px 4px #000;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-            font-weight: bold;
-            letter-spacing: 1px;
-            transition: transform 0.3s ease, background 0.3s ease;
-        }
-        .turn:hover {
-            transform: scale(1.05);
-            background: rgba(255, 255, 255, 0.1);
-        }
-        .round {
-            position: absolute;
-            top: -65px;
-            left: -65px;
-            font-size: 24px;
-            font-weight: 900;
-            color: #ff00d4;
-            padding: 8px 16px;
-            background: linear-gradient(145deg, #1a001f, #3b003d);
-            border: 2px solid #ff00d4;
-            border-radius: 12px;
-            box-shadow:
-                0 0 10px #ff00d4,
-                0 0 20px #ff00d4,
-                2px 2px 8px black;
-            text-shadow:
-                2px 2px 4px black,
-                0 0 10px #ff00d4;
-            font-family: 'Orbitron', sans-serif;
-            letter-spacing: 1px;
-            z-index: 1000;
-            user-select: none;
-            transition: transform 0.15s ease;
-        }
-        .round:hover {
-            transform: scale(1.1);
-            cursor: default;
-        }
-        .timer {
-            position: absolute;
-            top: 20px;
-            right: 15px;
-            font-size: 20px;
-            color: white;
-            text-shadow: 1px 1px 2px black;
-            width: 120px;
-            height: 10px;
-            background-color: #f00;
-            border-radius: 5px;
-        }
-        .timer-bar {
-            height: 100%;
-            background-color: #0f0;
-            transition: width 1s linear;
-            border-radius: 5px;
-        }
-        .countdown {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 48px;
-            color: white;
-            text-shadow: 2px 2px 4px black;
-        }
-        .player-icon {
-            position: absolute;
-            top: -65px;
-            width: 60px;
-            height: 60px;
-        }
-        .player1 { left: calc(50% - 150px); }
-        .player2 { left: calc(50% + 100px); }
-        .player-name {
-            position: absolute;
-            top: -5px;
-            font-size: 20px;
-            color: rgb(219, 0, 172);
-            text-shadow: 1px 1px 2px black;
-        }
-        .player1-name { left: calc(50% - 165px); }
-        .player2-name { left: calc(50% + 85px); }
-        .turn-indicator {
-            position: absolute;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 16px;
-            color: yellow;
-            text-shadow: 1px 1px 2px black;
-        }
-        .room {
-            margin: 10px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .height-limit {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: rgba(255, 255, 0, 0.3);
-            border-top: 2px dashed rgba(255, 255, 0, 0.6);
-        }
-        .waiting-message {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 24px;
-            color: white;
-            text-shadow: 2px 2px 4px black;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
+
 </head>
 <body>
     <div id="root"></div>
@@ -443,6 +245,7 @@
                 };
 
                 useEffect(() => {
+                    
                     const handleInteraction = () => {
                         startSound();
                         document.removeEventListener('click', handleInteraction);
@@ -571,9 +374,8 @@
                             const timerWidth = p.map(timerRef.current, 0, 8, 0, 100);
                             p.noStroke();
                             p.fill(255, 0, 0);
-                            p.rect(300, 10, 100, 10);
                             p.fill(0, 255, 0);
-                            p.rect(300, 10, timerWidth, 10);
+
                         }
                     };
 
@@ -635,6 +437,7 @@
                     const handleMessage = (event) => {
                         const data = JSON.parse(event.data);
                         if (data.type === 'update' || data.type === 'newRound' || data.type === 'scoreUpdate') {
+                            
                             ballRef.current = { ...ballRef.current, ...data.ball };
                             hoopXRef.current = data.hoopX;
                             timerRef.current = data.timer;
@@ -644,6 +447,7 @@
                             setForceUpdate(prev => prev + 1);
                         }
                     };
+                    
             
                     if (wsRef.current) {
                         wsRef.current.addEventListener('message', handleMessage);
@@ -660,7 +464,11 @@
                     <div className="gameplay">
                         <div className="game-container">
                             <div ref={sketchRef}></div>
-                            <div className="score">{scoresRef.current[0]} | {scoresRef.current[1]}</div>
+                            <div className="score-container">
+                                <div className="score-player player1-score">{scoresRef.current[0]}</div>
+                                <div className="score-player player2-score">{scoresRef.current[1]}</div>
+                            </div>
+
                             <div className="turn">Turno: {playersRef.current[turnRef.current] || 'Esperando...'}</div>
                             <div className="round">Ronda {roundRef.current}/3</div>
                             {playersRef.current[0] && (
@@ -676,7 +484,16 @@
                                 </>
                             )}
                             <div className="turn-indicator" style={{ display: 'none' }}>Modo Edición - Sin Turnos</div>
-                            {gameStarted && <div className="timer"><div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div></div>}
+                            {gameStarted && (
+                                <>
+                                    <div className={`timer player1-timer ${turnRef.current === 0 ? 'active' : ''}`}>
+                                        <div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div>
+                                    </div>
+                                    <div className={`timer player2-timer ${turnRef.current === 1 ? 'active' : ''}`}>
+                                        <div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div>
+                                    </div>
+                                </>
+                            )}
                             {countdownRef.current > 0 && <div className="countdown">{countdownRef.current}</div>}
                             {!gameStarted && <div className="waiting-message">Esperando al segundo jugador...</div>}
                         </div>
