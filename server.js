@@ -214,6 +214,9 @@ const finalizarTiro = (room, roomName, wasSuccessful) => {
     room.timer = 8;
     room.lastTimerUpdate = Date.now();
     
+    // Resetear contador AFK cuando el jugador hace un tiro
+    room.afk[room.turn] = 0;
+    
     // Incrementar intentos del jugador actual
     room.attempts[room.turn]++;
     room.totalAttempts[room.turn]++;
@@ -224,6 +227,54 @@ const finalizarTiro = (room, roomName, wasSuccessful) => {
 
 // Función para pasar el turno
 const passTurn = async (room, roomName) => {
+    // Incrementar contador AFK si el tiempo se agotó sin tirar
+    if (room.timer <= 0) {
+        room.afk[room.turn]++;
+        
+        // Si el jugador no encesta en 2 ocasiones consecutivas, pierde automáticamente
+        if (room.afk[room.turn] >= 2) {
+            const winner = (room.turn + 1) % 2;
+            room.players.forEach(p => {
+                if (p.ws.readyState === WebSocket.OPEN) {
+                    if (room.players[winner]) {
+                        p.ws.send(JSON.stringify({ type: 'end', winner: room.players[winner].name }));
+                    }
+                }
+            });
+            
+            // Actualizar rankings con el ganador
+            if (room.players[winner]) {
+                rankings.push({ name: room.players[winner].name, score: room.scores[winner] });
+                rankings.sort((a, b) => b.score - a.score);
+                rankings = rankings.slice(0, 5);
+                await saveRankings();
+                
+                // Enviar rankings actualizados
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify({ type: 'rankings', rankings }));
+                    }
+                });
+            }
+            
+            resetRoom(room);
+            
+            // Actualizar conteo de salas
+            wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({ 
+                        type: 'rooms', 
+                        rooms: { 
+                            room1: { players: rooms.room1.players.length }, 
+                            room2: { players: rooms.room2.players.length } 
+                        }
+                    }));
+                }
+            });
+            return;
+        }
+    }
+    
     // Si el jugador actual aún tiene intentos, continuar con él
     if (room.attempts[room.turn] < 5) {
         room.timer = 8;
@@ -257,6 +308,7 @@ const passTurn = async (room, roomName) => {
             // Nueva ronda
             room.round++;
             room.attempts = [0, 0]; // Resetear intentos para nueva ronda
+            room.afk = [0, 0]; // Resetear contador AFK para nueva ronda
             room.turn = 0; // Empezar con jugador 1
             room.timer = 8;
             room.lastTimerUpdate = Date.now();
@@ -384,6 +436,7 @@ wss.on('connection', (ws) => {
                     room.turn = 0;
                     room.attempts = [0, 0];
                     room.totalAttempts = [0, 0];
+                    room.afk = [0, 0]; // Resetear contador AFK al iniciar
                     room.scores = [0, 0];
                     room.round = 1;
                     room.timer = 8;
@@ -510,7 +563,7 @@ const resetRoom = (room) => {
 };
 
 // Actualizar el juego cada 20ms (50 FPS)
-setInterval(updateGameState, 20);
+setInterval(updateGameState, 16);
 
 server.listen(process.env.PORT || 8080, () => {
     console.log('Server running on port 8080');
