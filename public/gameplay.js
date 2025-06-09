@@ -8,6 +8,9 @@ const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef,
     const isMounted = React.useRef(false);
     const attemptsRef = React.useRef([0, 0]);
     const updateCounterRef = React.useRef(0);
+    
+    // Agregar la referencia faltante
+    const countdownRef = React.useRef(0);
 
     const setupSketch = (p) => {
         let ballImg, hoopBaseImg, hoopRingImg;
@@ -133,6 +136,12 @@ const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef,
                 hoopXRef.current = data.hoopX;
                 timerRef.current = data.timer;
                 attemptsRef.current = data.attempts;
+                
+                // Actualizar countdown si viene en los datos
+                if (data.countdown !== undefined) {
+                    countdownRef.current = data.countdown;
+                }
+                
                 setForceUpdate(prev => prev + 1);
             }
         };
