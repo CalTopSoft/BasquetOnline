@@ -1,24 +1,17 @@
 const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef, playerIndexRef, wsRef, room }) => {
-    // Estados locales para forzar re-renders
-    const [gameState, setGameState] = React.useState({
-        players: [],
-        scores: [0, 0],
-        round: 1,
-        turn: 0,
-        timer: 8,
-        attempts: [0, 0]
-    });
-    
     const [forceUpdate, setForceUpdate] = React.useState(0);
     const sketchRef = React.useRef(null);
     const p5Instance = React.useRef(null);
+    const timerRef = React.useRef(8);
     const ballRef = React.useRef({ x: 300, y: 370, r: 30, vx: 0, vy: 0, thrown: false, rotation: 0 });
     const hoopXRef = React.useRef(300);
     const isMounted = React.useRef(false);
+    const attemptsRef = React.useRef([0, 0]);
+    const updateCounterRef = React.useRef(0);
     const countdownRef = React.useRef(0);
     const lastBallStateRef = React.useRef(null);
 
-    // SoundManager
+    // Agregar SoundManager
     const SoundManager = (() => {
         let backgroundSound = null;
         let bounceSound = null;
@@ -104,18 +97,6 @@ const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef,
         };
     }, []);
 
-    // Actualizar estado local cuando cambien los refs del padre
-    React.useEffect(() => {
-        setGameState({
-            players: playersRef.current || [],
-            scores: scoresRef.current || [0, 0],
-            round: roundRef.current || 1,
-            turn: turnRef.current || 0,
-            timer: 8,
-            attempts: [0, 0]
-        });
-    }, [gameStarted]);
-
     const setupSketch = (p) => {
         let ballImg, hoopBaseImg, hoopRingImg;
         let dragging = false;
@@ -171,7 +152,7 @@ const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef,
             }
 
             if (gameStarted) {
-                const timerWidth = p.map(gameState.timer, 0, 8, 0, 100);
+                const timerWidth = p.map(timerRef.current, 0, 8, 0, 100);
                 p.noStroke();
                 p.fill(255, 0, 0);
                 p.fill(0, 255, 0);
@@ -179,7 +160,7 @@ const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef,
         };
 
         p.mousePressed = () => {
-            if (gameStarted && gameState.turn === playerIndexRef.current && !ballRef.current.thrown && gameState.attempts[playerIndexRef.current] < 5) {
+            if (gameStarted && turnRef.current === playerIndexRef.current && !ballRef.current.thrown && attemptsRef.current[playerIndexRef.current] < 5) {
                 if (p.mouseX >= ballRef.current.x - ballRef.current.r && p.mouseX <= ballRef.current.x + ballRef.current.r && 
                     p.mouseY >= ballRef.current.y - ballRef.current.r && p.mouseY <= ballRef.current.y + ballRef.current.r) {
                     dragging = true;
@@ -235,36 +216,17 @@ const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef,
     React.useEffect(() => {
         const handleMessage = (event) => {
             const data = JSON.parse(event.data);
-            if (data.type === 'update' || data.type === 'newRound' || data.type === 'scoreUpdate' || data.type === 'start') {
-                // Actualizar datos del balón y juego
-                if (data.ball) ballRef.current = { ...ballRef.current, ...data.ball };
-                if (data.hoopX !== undefined) hoopXRef.current = data.hoopX;
-                if (data.attempts) gameState.attempts = data.attempts;
+            if (data.type === 'update' || data.type === 'newRound' || data.type === 'scoreUpdate') {
+                ballRef.current = { ...ballRef.current, ...data.ball };
+                hoopXRef.current = data.hoopX;
+                timerRef.current = data.timer;
+                attemptsRef.current = data.attempts;
                 
                 // Actualizar los refs del componente padre
-                if (data.scores) {
-                    scoresRef.current = data.scores;
-                }
-                if (data.round !== undefined) {
-                    roundRef.current = data.round;
-                }
-                if (data.players) {
-                    playersRef.current = data.players;
-                }
-                if (data.turn !== undefined) {
-                    turnRef.current = data.turn;
-                }
-                
-                // Actualizar estado local para forzar re-render
-                setGameState(prevState => ({
-                    ...prevState,
-                    players: data.players || prevState.players,
-                    scores: data.scores || prevState.scores,
-                    round: data.round !== undefined ? data.round : prevState.round,
-                    turn: data.turn !== undefined ? data.turn : prevState.turn,
-                    timer: data.timer !== undefined ? data.timer : prevState.timer,
-                    attempts: data.attempts || prevState.attempts
-                }));
+                if (data.scores) scoresRef.current = data.scores;
+                if (data.round) roundRef.current = data.round;
+                if (data.players) playersRef.current = data.players;
+                if (data.turn !== undefined) turnRef.current = data.turn;
                 
                 // Actualizar countdown si viene en los datos
                 if (data.countdown !== undefined) {
@@ -322,53 +284,36 @@ const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef,
         };
     }, []);
 
-    // Debug: Log para verificar que los datos están llegando
-    console.log('Gameplay render:', {
-        players: gameState.players,
-        turn: gameState.turn,
-        scores: gameState.scores,
-        round: gameState.round,
-        gameStarted
-    });
-
-    // Obtener el nombre del jugador actual
-    const getCurrentPlayerName = () => {
-        if (gameState.players && gameState.players.length > gameState.turn) {
-            return gameState.players[gameState.turn];
-        }
-        return 'Esperando...';
-    };
-
     return (
         <div className="gameplay">
             <div className="game-container">
                 <div ref={sketchRef}></div>
                 <div className="score-container">
-                    <div className="score-player player1-score">{gameState.scores[0] || 0}</div>
-                    <div className="score-player player2-score">{gameState.scores[1] || 0}</div>
+                    <div className="score-player player1-score">{scoresRef.current[0]}</div>
+                    <div className="score-player player2-score">{scoresRef.current[1]}</div>
                 </div>
-                <div className="turn">Turno: {getCurrentPlayerName()}</div>
-                <div className="round">Ronda {gameState.round || 1}/3</div>
-                {gameState.players && gameState.players[0] && (
+                <div className="turn">Turno: {playersRef.current[turnRef.current] || 'Esperando...'}</div>
+                <div className="round">Ronda {roundRef.current}/3</div>
+                {playersRef.current[0] && (
                     <>
                         <img src="img/iconosplayer/player1.png" alt="Player 1" className="player-icon player1" />
-                        <div className="player-name player1-name">{gameState.players[0]}</div>
+                        <div className="player-name player1-name">{playersRef.current[0]}</div>
                     </>
                 )}
-                {gameState.players && gameState.players[1] && (
+                {playersRef.current[1] && (
                     <>
                         <img src="img/iconosplayer/player2.png" alt="Player 2" className="player-icon player2" />
-                        <div className="player-name player2-name">{gameState.players[1]}</div>
+                        <div className="player-name player2-name">{playersRef.current[1]}</div>
                     </>
                 )}
                 <div className="turn-indicator" style={{ display: 'none' }}>Modo Edición - Sin Turnos</div>
                 {gameStarted && (
                     <>
-                        <div className={`timer player1-timer ${gameState.turn === 0 ? 'active' : ''}`}>
-                            <div className="timer-bar" style={{ width: `${(gameState.timer || 0) * 12.5}%` }}></div>
+                        <div className={`timer player1-timer ${turnRef.current === 0 ? 'active' : ''}`}>
+                            <div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div>
                         </div>
-                        <div className={`timer player2-timer ${gameState.turn === 1 ? 'active' : ''}`}>
-                            <div className="timer-bar" style={{ width: `${(gameState.timer || 0) * 12.5}%` }}></div>
+                        <div className={`timer player2-timer ${turnRef.current === 1 ? 'active' : ''}`}>
+                            <div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div>
                         </div>
                     </>
                 )}
