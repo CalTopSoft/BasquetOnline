@@ -1,5 +1,12 @@
 const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef, playerIndexRef, wsRef, room }) => {
     const [forceUpdate, setForceUpdate] = React.useState(0);
+    const [players, setPlayers] = React.useState(['', '']);
+    const [scores, setScores] = React.useState([0, 0]);
+    const [currentTurn, setCurrentTurn] = React.useState(0);
+    const [currentRound, setCurrentRound] = React.useState(1);
+    const [timer, setTimer] = React.useState(8);
+    const [countdown, setCountdown] = React.useState(0);
+    
     const sketchRef = React.useRef(null);
     const p5Instance = React.useRef(null);
     const timerRef = React.useRef(8);
@@ -8,10 +15,9 @@ const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef,
     const isMounted = React.useRef(false);
     const attemptsRef = React.useRef([0, 0]);
     const updateCounterRef = React.useRef(0);
-    const countdownRef = React.useRef(0);
     const lastBallStateRef = React.useRef(null);
 
-    // Agregar SoundManager
+    // SoundManager remains unchanged
     const SoundManager = (() => {
         let backgroundSound = null;
         let bounceSound = null;
@@ -110,7 +116,7 @@ const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef,
                 hoopRingImg = p.loadImage('img/arco/hoop_ring.png');
                 console.log("Resources loaded successfully");
             } catch (error) {
-                console.error("Error loading resources:", error);
+ Victor.error("Error loading resources:", error);
             }
         };
 
@@ -160,7 +166,7 @@ const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef,
         };
 
         p.mousePressed = () => {
-            if (gameStarted && turnRef.current === playerIndexRef.current && !ballRef.current.thrown && attemptsRef.current[playerIndexRef.current] < 5) {
+            if (gameStarted && currentTurn === playerIndexRef.current && !ballRef.current.thrown && attemptsRef.current[playerIndexRef.current] < 5) {
                 if (p.mouseX >= ballRef.current.x - ballRef.current.r && p.mouseX <= ballRef.current.x + ballRef.current.r && 
                     p.mouseY >= ballRef.current.y - ballRef.current.r && p.mouseY <= ballRef.current.y + ballRef.current.r) {
                     dragging = true;
@@ -216,21 +222,42 @@ const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef,
     React.useEffect(() => {
         const handleMessage = (event) => {
             const data = JSON.parse(event.data);
-            if (data.type === 'update' || data.type === 'newRound' || data.type === 'scoreUpdate') {
+            if (data.type === 'update' || data.type === 'newRound' || data.type === 'scoreUpdate' || data.type === 'start') {
                 ballRef.current = { ...ballRef.current, ...data.ball };
                 hoopXRef.current = data.hoopX;
                 timerRef.current = data.timer;
                 attemptsRef.current = data.attempts;
                 
-                // Actualizar los refs del componente padre
-                if (data.scores) scoresRef.current = data.scores;
-                if (data.round) roundRef.current = data.round;
-                if (data.players) playersRef.current = data.players;
-                if (data.turn !== undefined) turnRef.current = data.turn;
+                // Actualizar estados locales para forzar re-render
+                if (data.scores) {
+                    setScores([...data.scores]);
+                    scoresRef.current = data.scores;
+                }
+                if (data.round) {
+                    setCurrentRound(data.round);
+                    roundRef.current = data.round;
+                }
+                if (data.players) {
+                    // Ensure players array is valid and non-empty
+                    const newPlayers = data.players && Array.isArray(data.players) && data.players.length > 0 
+                        ? data.players 
+                        : playersRef.current || ['', ''];
+                    setPlayers(newPlayers);
+                    playersRef.current = newPlayers;
+                    console.log("Players updated:", newPlayers); // Debug log
+                }
+                if (data.turn !== undefined) {
+                    setCurrentTurn(data.turn);
+                    turnRef.current = data.turn;
+                    console.log("Turn updated:", data.turn); // Debug log
+                }
+                if (data.timer !== undefined) {
+                    setTimer(data.timer);
+                }
                 
                 // Actualizar countdown si viene en los datos
                 if (data.countdown !== undefined) {
-                    countdownRef.current = data.countdown;
+                    setCountdown(data.countdown);
                 }
 
                 // Lógica de sonidos del código original
@@ -289,35 +316,37 @@ const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef,
             <div className="game-container">
                 <div ref={sketchRef}></div>
                 <div className="score-container">
-                    <div className="score-player player1-score">{scoresRef.current[0]}</div>
-                    <div className="score-player player2-score">{scoresRef.current[1]}</div>
+                    <div className="score-player player1-score">{scores[0]}</div>
+                    <div className="score-player player2-score">{scores[1]}</div>
                 </div>
-                <div className="turn">Turno: {playersRef.current[turnRef.current] || 'Esperando...'}</div>
-                <div className="round">Ronda {roundRef.current}/3</div>
-                {playersRef.current[0] && (
+                <div className="turn">
+                    Turno: {players[currentTurn] && players[currentTurn].trim() ? players[currentTurn] : 'Esperando...'}
+                </div>
+                <div className="round">Ronda {currentRound}/3</div>
+                {players[0] && players[0].trim() && (
                     <>
-                        <img src="img/iconosplayer/player1.png" alt="Player 1" className="player-icon player1" />
-                        <div className="player-name player1-name">{playersRef.current[0]}</div>
+                        <img src="/img/iconosplayer/player1.png" alt="Player 1" className="player-icon player1" />
+                        <div className="player-name player1-name">{players[0]}</div>
                     </>
                 )}
-                {playersRef.current[1] && (
+                {players[1] && players[1].trim() && (
                     <>
-                        <img src="img/iconosplayer/player2.png" alt="Player 2" className="player-icon player2" />
-                        <div className="player-name player2-name">{playersRef.current[1]}</div>
+                        <img src="/img/iconosplayer/player2.png" alt="Player 2" className="player-icon player2" />
+                        <div className="player-name player2-name">{players[1]}</div>
                     </>
                 )}
                 <div className="turn-indicator" style={{ display: 'none' }}>Modo Edición - Sin Turnos</div>
                 {gameStarted && (
                     <>
-                        <div className={`timer player1-timer ${turnRef.current === 0 ? 'active' : ''}`}>
-                            <div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div>
+                        <div className={`timer player1-timer ${currentTurn === 0 ? 'active' : ''}`}>
+                            <div className="timer-bar" style={{ width: `${timer * 12.5}%` }}></div>
                         </div>
-                        <div className={`timer player2-timer ${turnRef.current === 1 ? 'active' : ''}`}>
-                            <div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div>
+                        <div className={`timer player2-timer ${currentTurn === 1 ? 'active' : ''}`}>
+                            <div className="timer-bar" style={{ width: `${timer * 12.5}%` }}></div>
                         </div>
                     </>
                 )}
-                {countdownRef.current > 0 && <div className="countdown">{countdownRef.current}</div>}
+                {countdown > 0 && <div className="countdown">{countdown}</div>}
                 {!gameStarted && <div className="waiting-message">Esperando al segundo jugador...</div>}
             </div>
         </div>
