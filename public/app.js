@@ -1,4 +1,3 @@
-
 const { useState, useEffect, useRef } = React;
 
 const SoundManager = (() => {
@@ -107,8 +106,6 @@ const App = () => {
 
         wsRef.current.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            console.log('Received message:', data.type, data);
-            
             if (data.type === 'rooms') {
                 roomStatusRef.current = data.rooms;
                 setScreen(screen => screen);
@@ -117,7 +114,6 @@ const App = () => {
                 setRoom(data.room);
                 playersRef.current = data.players;
                 playerIndexRef.current = data.playerIndex;
-                console.log('Joined room, players:', data.players, 'playerIndex:', data.playerIndex);
                 setScreen('gameplay');
             }
             if (data.type === 'start') {
@@ -126,21 +122,12 @@ const App = () => {
                 scoresRef.current = data.scores;
                 roundRef.current = data.round;
                 turnRef.current = data.turn;
-                console.log('Game started:', {
-                    players: data.players,
-                    scores: data.scores,
-                    round: data.round,
-                    turn: data.turn
-                });
             }
             if (data.type === 'update') {
-                // Actualizar todos los datos del juego
-                if (data.scores) scoresRef.current = data.scores;
-                if (data.round !== undefined) roundRef.current = data.round;
-                if (data.players) playersRef.current = data.players;
-                if (data.turn !== undefined) turnRef.current = data.turn;
-                
-                // Procesar sonidos si es necesario
+                scoresRef.current = data.scores;
+                roundRef.current = data.round;
+                playersRef.current = data.players;
+                turnRef.current = data.turn;
                 if (lastBallStateRef.current && data.ball) {
                     if (
                         lastBallStateRef.current.thrown &&
@@ -216,7 +203,7 @@ const App = () => {
             }
             SoundManager.cleanup();
         };
-    }, [name]);
+    }, []);
 
     return (
         <div>
