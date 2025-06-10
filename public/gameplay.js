@@ -8,9 +8,94 @@ const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef,
     const isMounted = React.useRef(false);
     const attemptsRef = React.useRef([0, 0]);
     const updateCounterRef = React.useRef(0);
-    
-    // Agregar la referencia faltante
     const countdownRef = React.useRef(0);
+    const lastBallStateRef = React.useRef(null);
+
+    // Agregar SoundManager
+    const SoundManager = (() => {
+        let backgroundSound = null;
+        let bounceSound = null;
+        let hoopHitSound = null;
+        let wheelsSound = null;
+        let scoreSound = null;
+        let scoreAddSound = null;
+        let winSound = null;
+        let loseSound = null;
+        let isSoundPlaying = false;
+
+        const init = () => {
+            backgroundSound = new Audio('sound/background.mp3');
+            backgroundSound.loop = true;
+            backgroundSound.volume = 0.4;
+
+            bounceSound = new Audio('sound/ball_bounce.mp3');
+            hoopHitSound = new Audio('sound/hoop_hit.mp3');
+            wheelsSound = new Audio('sound/wheels.mp3');
+            wheelsSound.volume = 0.3;
+            scoreSound = new Audio('sound/score.mp3');
+            scoreAddSound = new Audio('sound/score_add.mp3');
+            winSound = new Audio('sound/win.mp3');
+            loseSound = new Audio('sound/lose.mp3');
+
+            console.log("SoundManager initialized with native Audio API");
+        };
+
+        const playBackground = () => {
+            if (backgroundSound && !isSoundPlaying) {
+                backgroundSound.play().catch(err => console.error("Error playing background sound:", err));
+                isSoundPlaying = true;
+                console.log("Background sound started");
+            }
+        };
+
+        const stopBackground = () => {
+            if (backgroundSound) {
+                backgroundSound.pause();
+                backgroundSound.currentTime = 0;
+                isSoundPlaying = false;
+                console.log("Background sound stopped");
+            }
+        };
+
+        const playSound = (soundType) => {
+            const soundMap = {
+                bounce: bounceSound,
+                hoopHit: hoopHitSound,
+                wheels: wheelsSound,
+                score: scoreSound,
+                scoreAdd: scoreAddSound,
+                win: winSound,
+                lose: loseSound
+            };
+            const sound = soundMap[soundType];
+            if (sound) {
+                sound.currentTime = 0;
+                sound.play().catch(err => console.error(`Error playing ${soundType} sound:`, err));
+                console.log(`${soundType} sound played`);
+            }
+        };
+
+        const cleanup = () => {
+            stopBackground();
+            [bounceSound, hoopHitSound, wheelsSound, scoreSound, scoreAddSound, winSound, loseSound].forEach(sound => {
+                if (sound) {
+                    sound.pause();
+                    sound.currentTime = 0;
+                }
+            });
+        };
+
+        return { init, playBackground, stopBackground, playSound, cleanup };
+    })();
+
+    React.useEffect(() => {
+        SoundManager.init();
+        SoundManager.playBackground();
+
+        return () => {
+            SoundManager.cleanup();
+        };
+    }, []);
 
     const setupSketch = (p) => {
         let ballImg, hoopBaseImg, hoopRingImg;
@@ -137,10 +222,52 @@ const Gameplay = ({ name, gameStarted, playersRef, scoresRef, roundRef, turnRef,
                 timerRef.current = data.timer;
                 attemptsRef.current = data.attempts;
                 
+                // Actualizar los refs del componente padre
+                if (data.scores) scoresRef.current = data.scores;
+                if (data.round) roundRef.current = data.round;
+                if (data.players) playersRef.current = data.players;
+                if (data.turn !== undefined) turnRef.current = data.turn;
+                
                 // Actualizar countdown si viene en los datos
                 if (data.countdown !== undefined) {
                     countdownRef.current = data.countdown;
                 }
+
+                // Lógica de sonidos del código original
+                if (lastBallStateRef.current && data.ball) {
+                    if (
+                        lastBallStateRef.current.thrown &&
+                        !data.ball.thrown &&
+                        data.ball.vy === 0 &&
+                        data.ball.vx === 0 &&
+                        data.ball.y === 370
+                    ) {
+                        SoundManager.playSound('bounce');
+                    }
+                    if (
+                        lastBallStateRef.current.y > 113 &&
+                        data.ball.y <= 113 &&
+                        Math.abs(data.ball.x - data.hoopX) < 15
+                    ) {
+                        SoundManager.playSound('hoopHit');
+                    }
+                    if (
+                        Math.abs(lastBallStateRef.current.x - data.hoopX) > 75 &&
+                        Math.abs(data.ball.x - data.hoopX) <= 75
+                    ) {
+                        SoundManager.playSound('wheels');
+                    }
+                    if (
+                        lastBallStateRef.current.thrown &&
+                        !data.ball.thrown &&
+                        data.scores && lastBallStateRef.current.scores &&
+                        data.scores[data.turn] > (lastBallStateRef.current.scores[data.turn] || 0)
+                    ) {
+                        SoundManager.playSound('score');
+                        SoundManager.playSound('scoreAdd');
+                    }
+                }
+                lastBallStateRef.current = { ...data.ball, scores: data.scores ? [...data.scores] : null };
                 
                 setForceUpdate(prev => prev + 1);
             }
