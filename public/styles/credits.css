@@ -1,0 +1,109 @@
+.credits-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    width: 100vw;
+    background: url('img/court-background.jpg') no-repeat center center;
+    background-size: cover;
+    position: relative;
+    font-family: 'Impact', Arial, sans-serif;
+    color: #ffffff;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.credits-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(20, 30, 60, 0.7);
+    z-index: 1;
+}
+
+.credits-title {
+    font-size: 3.5rem;
+    font-weight: bold;
+    color: #00e676;
+    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8), 0 0 15px #ffea00;
+    margin-bottom: 40px;
+    z-index: 2;
+    animation: slam 1.5s infinite;
+}
+
+.credits-content {
+    background: rgba(30, 40, 80, 0.85);
+    border-radius: 15px;
+    padding: 20px;
+    width: 80%;
+    max-width: 600px;
+    border: 3px solid #ffea00;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.6);
+    z-index: 2;
+    text-align: center;
+}
+
+.credits-content p {
+    font-size: 1.2rem;
+    margin: 10px 0;
+    color: #d0d0d0;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.back-button {
+    margin-top: 40px;
+    background: linear-gradient(45deg, #0288d1, #29b6f6);
+    color: #ffffff;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 10px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    z-index: 2;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+}
+
+.back-button:hover {
+    background: linear-gradient(45deg, #29b6f6, #4fc3f7);
+    transform: scale(1.1);
+    box-shadow: 0 5px 15px rgba(2, 136, 209, 0.7);
+}
+
+@keyframes slam {
+    0%, 100% {
+        transform: translateY(0) scale(1);
+        text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8), 0 0 15px #ffea00;
+    }
+    50% {
+        transform: translateY(-15px) scale(1.05);
+        text-shadow: 3px 3px 8px rgba(0, 0, 0, 0.9), 0 0 20px #ffea00;
+    }
+}
+
+@media (max-width: 768px) {
+    .credits-container {
+        padding: 10px;
+    }
+    .credits-title {
+        font-size: 2.2rem;
+        margin-bottom: 20px;
+    }
+    .credits-content {
+        width: 90%;
+        padding: 15px;
+    }
+    .credits-content p {
+        font-size: 1rem;
+    }
+    .back-button {
+        padding: 10px 25px;
+        font-size: 1rem;
+        margin-top: 20px;
+    }
+}
