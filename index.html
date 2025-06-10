@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
     <link rel="stylesheet" href="styles.css">
-
+    <link rel="stylesheet" href="rooms.css">
 </head>
 <body>
     <div id="root"></div>
@@ -35,7 +35,7 @@
                 bounceSound = new Audio('sound/ball_bounce.mp3');
                 hoopHitSound = new Audio('sound/hoop_hit.mp3');
                 wheelsSound = new Audio('sound/wheels.mp3');
-                wheelsSound.volume = 0.3; // REDUCIR este sonido que está muy alto
+                wheelsSound.volume = 0.3;
                 scoreSound = new Audio('sound/score.mp3');
                 scoreAddSound = new Audio('sound/score_add.mp3');
                 winSound = new Audio('sound/win.mp3');
@@ -152,7 +152,6 @@
                         playersRef.current = data.players;
                         turnRef.current = data.turn;
                         
-                        // Forzar re-render del componente para actualizar UI
                         setScreen(screen => screen);
                     
                         if (lastBallStateRef.current && data.ball) {
@@ -195,13 +194,11 @@
                         scoresRef.current = data.scores;
                         playersRef.current = data.players;
                         turnRef.current = data.turn;
-                        // Forzar re-render
                         setScreen(screen => screen);
                     }
                     
                     if (data.type === 'scoreUpdate') {
                         scoresRef.current = data.scores;
-                        // Forzar re-render inmediato para mostrar puntaje
                         setScreen(screen => screen);
                     }
 
@@ -245,7 +242,6 @@
                 };
 
                 useEffect(() => {
-                    
                     const handleInteraction = () => {
                         startSound();
                         document.removeEventListener('click', handleInteraction);
@@ -279,27 +275,73 @@
                 };
 
                 return (
-                    <div className="container">
-                        <h1>Salas</h1>
-                        <div className="room">
-                            <span>Sala 1 ({roomStatusRef.current.room1.players}/2)</span>
-                            <button 
-                                onClick={() => joinRoom('room1')} 
-                                disabled={roomStatusRef.current.room1.players >= 2}
-                            >
-                                Entrar
-                            </button>
+                    <div className="rooms-container">
+                        <h1 className="rooms-title">Salas de Baloncesto</h1>
+                        <div className="court-lines">
+                            <div className="court-line court-line-1"></div>
+                            <div className="court-line court-line-2"></div>
+                            <div className="court-line court-line-3"></div>
                         </div>
-                        <div className="room">
-                            <span>Sala 2 ({roomStatusRef.current.room2.players}/2)</span>
-                            <button 
-                                onClick={() => joinRoom('room2')} 
-                                disabled={roomStatusRef.current.room2.players >= 2}
-                            >
-                                Entrar
-                            </button>
+                        <div className="basketball-animation">
+                            <div className="basketball-ball ball-1"></div>
+                            <div className="basketball-ball ball-2"></div>
+                            <div className="basketball-ball ball-3"></div>
                         </div>
-                        <button onClick={() => setScreen('home')}>Volver</button>
+                        <div className="hoop-animation hoop-left">
+                            <div className="hoop-ring"></div>
+                            <div className="hoop-net"></div>
+                        </div>
+                        <div className="hoop-animation hoop-right">
+                            <div className="hoop-ring"></div>
+                            <div className="hoop-net"></div>
+                        </div>
+                        <div className="crowd-animation">
+                            <div className="crowd-person crowd-person-1"></div>
+                            <div className="crowd-person crowd-person-2"></div>
+                            <div className="crowd-person crowd-person-3"></div>
+                            <div className="crowd-person crowd-person-4"></div>
+                        </div>
+                        <div className="rooms-list">
+                            <div className="room-card" id="room1-card">
+                                <div className="room-header">
+                                    <span className="room-name">Cancha 1</span>
+                                    <span className="room-status">
+                                        ({roomStatusRef.current.room1.players}/2)
+                                    </span>
+                                </div>
+                                <div className="room-content">
+                                    <p className="room-info">¡Dribla, encesta y triunfa!</p>
+                                    <button 
+                                        className={`room-button ${roomStatusRef.current.room1.players >= 2 ? 'disabled' : ''}`}
+                                        onClick={() => joinRoom('room1')} 
+                                        disabled={roomStatusRef.current.room1.players >= 2}
+                                    >
+                                        Jugar
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="room-card" id="room2-card">
+                                <div className="room-header">
+                                    <span className="room-name">Cancha 2</span>
+                                    <span className="room-status">
+                                        ({roomStatusRef.current.room2.players}/2)
+                                    </span>
+                                </div>
+                                <div className="room-content">
+                                    <p className="room-info">¡Anota el punto ganador!</p>
+                                    <button 
+                                        className={`room-button ${roomStatusRef.current.room2.players >= 2 ? 'disabled' : ''}`}
+                                        onClick={() => joinRoom('room2')} 
+                                        disabled={roomStatusRef.current.room2.players >= 2}
+                                    >
+                                        Jugar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <button className="back-button" onClick={() => setScreen('home')}>
+                            Volver a la Cancha Principal
+                        </button>
                     </div>
                 );
             };
@@ -375,7 +417,6 @@
                             p.noStroke();
                             p.fill(255, 0, 0);
                             p.fill(0, 255, 0);
-
                         }
                     };
 
@@ -437,18 +478,14 @@
                     const handleMessage = (event) => {
                         const data = JSON.parse(event.data);
                         if (data.type === 'update' || data.type === 'newRound' || data.type === 'scoreUpdate') {
-                            
                             ballRef.current = { ...ballRef.current, ...data.ball };
                             hoopXRef.current = data.hoopX;
                             timerRef.current = data.timer;
                             attemptsRef.current = data.attempts;
-                            
-                            // Forzar re-render del componente
                             setForceUpdate(prev => prev + 1);
                         }
                     };
                     
-            
                     if (wsRef.current) {
                         wsRef.current.addEventListener('message', handleMessage);
                     }
