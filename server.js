@@ -192,7 +192,7 @@ const updateGameState = () => {
         // Enviar estado actualizado a los clientes
         room.players.forEach(p => {
             if (p.ws.readyState === WebSocket.OPEN) {
-                const message = {
+                p.ws.send(JSON.stringify({
                     type: 'update',
                     scores: room.scores,
                     turn: room.turn,
@@ -202,9 +202,7 @@ const updateGameState = () => {
                     round: room.round,
                     attempts: room.attempts,
                     players: room.players.map(player => player.name)
-                };
-                console.log(`Sending update to ${p.name}:`, message); // Debug log
-                p.ws.send(JSON.stringify(message));
+                }));
             }
         });
     }
