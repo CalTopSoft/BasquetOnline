@@ -3,13 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Juego de Baloncesto Multijugador - Modo Online</title>
+    <title>BasketLine Multijugador - Modo Online</title>
     <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="rooms.css">
+    <link rel="stylesheet" href="/public/styles/inicio.css">
+    <link rel="stylesheet" href="/public/styles/credits.css">
+    <link rel="stylesheet" href="/public/styles/rankings.css">
+    <link rel="stylesheet" href="/public/styles/rooms.css">
+    <link rel="icon" href="/img/iconoweb/favicon.ico" type="image/x-icon">
+
 </head>
 <body>
     <div id="root"></div>
@@ -41,14 +46,14 @@
                 winSound = new Audio('sound/win.mp3');
                 loseSound = new Audio('sound/lose.mp3');
 
-                console.log("SoundManager initialized with native Audio API");
+                console.log("SoundManager inicializado con API de audio nativa");
             };
 
             const playBackground = () => {
                 if (backgroundSound && !isSoundPlaying) {
-                    backgroundSound.play().catch(err => console.error("Error playing background sound:", err));
+                    backgroundSound.play().catch(err => console.error("Error al reproducir el sonido de fondo:", err));
                     isSoundPlaying = true;
-                    console.log("Background sound started");
+                    console.log("Se inició el sonido de fondo.");
                 }
             };
 
@@ -57,7 +62,7 @@
                     backgroundSound.pause();
                     backgroundSound.currentTime = 0;
                     isSoundPlaying = false;
-                    console.log("Background sound stopped");
+                    console.log("El sonido de fondo se detuvo");
                 }
             };
 
@@ -74,8 +79,8 @@
                 const sound = soundMap[soundType];
                 if (sound) {
                     sound.currentTime = 0;
-                    sound.play().catch(err => console.error(`Error playing ${soundType} sound:`, err));
-                    console.log(`${soundType} sound played`);
+                    sound.play().catch(err => console.error(`Error al reproducir${soundType} sonido:`, err));
+                    console.log(`${soundType} sonido reproducido`);
                 }
             };
 
@@ -93,7 +98,7 @@
         })();
 
         const App = () => {
-            console.log("App component rendered");
+            console.log("Componente de aplicación renderizado");
 
             const [screen, setScreen] = useState('home');
             const [name, setName] = useState('Jugador1');
@@ -118,7 +123,7 @@
                 wsRef.current = new WebSocket(wsUrl);
 
                 wsRef.current.onopen = () => {
-                    console.log("Connected to WebSocket server");
+                    console.log("Conectado al servidor WebSocket");
                     wsRef.current.send(JSON.stringify({ type: 'getRooms' }));
                     wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
                 };
@@ -224,7 +229,7 @@
                 };
 
                 wsRef.current.onclose = () => {
-                    console.log("Disconnected from WebSocket server");
+                    console.log("Desconectado del servidor WebSocket");
                     SoundManager.stopBackground();
                 };
 
@@ -251,18 +256,62 @@
                 }, []);
 
                 return (
-                    <div className="container">
-                        <h1>Juego de Baloncesto</h1>
-                        <input
-                            type="text"
-                            placeholder="Ingresa tu nombre"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                        />
-                        <br />
-                        <button onClick={() => setScreen('rooms')}>Entrar a Partida</button>
-                        <button onClick={() => setScreen('rankings')}>Rankings</button>
-                        <button onClick={() => setScreen('credits')}>Créditos v1.0</button>
+                    <div className="home-container">
+
+                        <h1 className="home-title">BasketLine Multijugador</h1>
+                        <div className="court-lines">
+                            <div className="court-line court-line-1"></div>
+                            <div className="court-line court-line-2"></div>
+                            <div className="court-line court-line-3"></div>
+                            <div className="court-line court-line-4"></div>
+                            <div className="court-line court-line-5"></div>
+                        </div>
+                        <div className="basketball-animation">
+                            <div className="basketball-ball ball-1"></div>
+                            <div className="basketball-ball ball-2"></div>
+                            <div className="basketball-ball ball-3"></div>
+                            <div className="basketball-ball ball-4"></div>
+                        </div>
+                        <div className="hoop-animation hoop-left">
+                            <div className="hoop-ring"></div>
+                            <div className="hoop-net"></div>
+                        </div>
+                        <div className="hoop-animation hoop-right">
+                            <div className="hoop-ring"></div>
+                            <div className="hoop-net"></div>
+                        </div>
+                        <div className="crowd-animation">
+                            <div className="crowd-person crowd-person-1"></div>
+                            <div className="crowd-person crowd-person-2"></div>
+                            <div className="crowd-person crowd-person-3"></div>
+                            <div className="crowd-person crowd-person-4"></div>
+                            <div className="crowd-person crowd-person-5"></div>
+                            <div className="crowd-person crowd-person-6"></div>
+                        </div>
+                        <div className="spotlight-animation">
+                            <div className="spotlight spotlight-1"></div>
+                            <div className="spotlight spotlight-2"></div>
+                        </div>
+                        <div className="home-content">
+                            <input
+                                type="text"
+                                className="name-input"
+                                placeholder="Ingresa tu nombre"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                            />
+                            <div className="button-group">
+                                <button className="action-button" onClick={() => setScreen('rooms')}>
+                                    Entrar a Partida
+                                </button>
+                                <button className="action-button" onClick={() => setScreen('rankings')}>
+                                    Rankings
+                                </button>
+                                <button className="action-button" onClick={() => setScreen('credits')}>
+                                    Créditos v1.0
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 );
             };
@@ -368,9 +417,9 @@
                             ballImg = p.loadImage('img/balon/ball.png');
                             hoopBaseImg = p.loadImage('img/arco/hoop_base.png');
                             hoopRingImg = p.loadImage('img/arco/hoop_ring.png');
-                            console.log("Resources loaded successfully");
+                            console.log("Recursos cargados exitosamente");
                         } catch (error) {
-                            console.error("Error loading resources:", error);
+                            console.error("Error al cargar recursos:", error);
                         }
                     };
 
@@ -455,7 +504,7 @@
                     };
 
                     p.mouseDragged = () => {
-                        if (dragging) console.log("Dragging in progress...");
+                        if (dragging) console.log("Arrastrando en progreso...");
                     };
                 };
 
