@@ -1,4 +1,3 @@
-
 const WebSocket = require('ws');
 const fs = require('fs').promises;
 const http = require('http');
@@ -24,7 +23,7 @@ const rooms = {
         gameStarted: false,
         gameEnded: false,
         shotInProgress: false,
-        lastBounceTime: 0 // Para evitar múltiples sonidos de rebote
+        lastBounceTime: 0
     },
     room2: { 
         players: [], 
@@ -108,26 +107,34 @@ const updateGameState = () => {
             }
 
             if (room.ball.y + 30 >= 370 && room.bounceCount < 3) {
-                if (now - room.lastBounceTime > 200) { // Evitar múltiples disparos rápidos
-                    room.ball.y = 370 - 30;
-                    room.ball.vy = -Math.abs(room.ball.vy) * 0.75;
-                    if (Math.abs(room.ball.vx) > 0.1) room.ball.vx *= 0.9;
-                    else room.ball.vx += (Math.random() - 0.5) * 3;
-                    
-                    const centerOffset = room.ball.x - 300;
-                    room.ball.vx += centerOffset * 0.03;
+                if (now - room.lastBounceTime > 200) {
+                    room.ball.y = 370 - 30; // Posición en el suelo
                     room.bounceCount++;
+                    
+                    if (room.bounceCount < 3) {
+                        // Rebotes 1 y 2: Reducir velocidad
+                        room.ball.vy = -Math.abs(room.ball.vy) * 0.75;
+                        if (Math.abs(room.ball.vx) > 0.1) room.ball.vx *= 0.9;
+                        else room.ball.vx += (Math.random() - 0.5) * 3;
+                        const centerOffset = room.ball.x - 300;
+                        room.ball.vx += centerOffset * 0.03;
+                    } else {
+                        // Tercer rebote: Detener completamente
+                        room.ball.vy = 0;
+                        room.ball.vx = 0;
+                        room.ball.thrown = false;
+                        room.shotInProgress = false;
+                        finalizarTiro(room, roomName, false);
+                    }
+
                     room.lastBounceTime = now;
 
-                    // Enviar mensaje de rebote
                     room.players.forEach(p => {
                         if (p.ws.readyState === WebSocket.OPEN) {
                             p.ws.send(JSON.stringify({ type: 'bounce' }));
                         }
                     });
                 }
-            } else if (room.ball.y > 400 && room.bounceCount >= 3) {
-                finalizarTiro(room, roomName, false);
             }
 
             const hoopLeft = room.hoopX - 75 / 2;
@@ -180,7 +187,6 @@ const updateGameState = () => {
                         room.ball.vy *= -0.7;
                         if (room.ball.vy > -2) room.ball.vy = 2;
 
-                        // Enviar mensaje de colisión con el aro
                         room.players.forEach(p => {
                             if (p.ws.readyState === WebSocket.OPEN) {
                                 p.ws.send(JSON.stringify({ type: 'hoopHit' }));
