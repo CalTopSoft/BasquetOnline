@@ -184,14 +184,7 @@
                         turnRef.current = data.turn;
                         
                         if (lastBallStateRef.current && data.ball) {
-                            if (
-                                lastBallStateRef.current.thrown &&
-                                !data.ball.thrown &&
-                                data.scores[data.turn] > (lastBallStateRef.current.scores?.[data.turn] || 0)
-                            ) {
-                                SoundManager.playSound('score');
-                                SoundManager.playSound('scoreAdd');
-                            }
+                            // Eliminamos la lógica de score aquí
                         }
                         lastBallStateRef.current = { ...data.ball, scores: [...data.scores] };
                     }
@@ -218,6 +211,8 @@
                     
                     if (data.type === 'scoreUpdate') {
                         scoresRef.current = data.scores;
+                        SoundManager.playSound('score');
+                        SoundManager.playSound('scoreAdd');
                     }
 
                     if (data.type === 'end') {
@@ -225,7 +220,7 @@
                         setScreen('result');
                         setGameStarted(false);
                         SoundManager.stopWheels();
-                        console.log(`Resultado: winner=${data.winner}, name=${nameRef.current}`); // Depuración
+                        console.log(`Resultado: winner=${data.winner}, name=${nameRef.current}`);
                         if (data.winner === nameRef.current) {
                             SoundManager.playSound('win');
                         } else if (data.winner !== 'tie' && data.winner !== 'Desconectado') {
