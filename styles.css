@@ -270,42 +270,111 @@ input {
     }
 }
 
-/* Reemplazar el CSS existente de .timer */
+/* Barra */
+/* BASE (OCULTO POR DEFAULT) */
 .timer {
     position: absolute;
-    font-size: 20px;
-    color: white;
-    text-shadow: 1px 1px 2px black;
     width: 120px;
     height: 10px;
-    background-color: #f00;
+    background: #222;
     border-radius: 5px;
+    border: 1px solid #444;
+    box-shadow: 
+        inset 0 0 3px rgba(0, 0, 0, 0.8),
+        0 0 5px rgba(255, 0, 0, 0.5);
+    overflow: hidden;
     display: none; /* Oculto por defecto */
 }
 
-/* Barra de tiempo para jugador 1 */
+/* BARRA DE TIEMPO (ANIMADA) */
+.timer-bar {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, 
+        #ff0000 0%, 
+        #ff5500 30%, 
+        #00ff00 70%);
+    box-shadow: 
+        inset 0 0 5px rgba(255, 255, 255, 0.3),
+        0 0 10px rgba(0, 255, 0, 0.3);
+    animation: 
+        gradient-flow 3s infinite linear,
+        pulse-glow 1.5s infinite alternate;
+    transition: width 0.3s linear;
+}
+
+/* EFECTOS EPICOS (PERO COMPACTOS) */
+.timer-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.1),
+        rgba(255, 255, 255, 0.1) 2px,
+        transparent 2px,
+        transparent 4px
+    );
+    animation: scan 0.5s infinite linear;
+}
+
+/* MODO ACTIVO (CUANDO SE MUESTRA) */
+.timer.active {
+    display: block; /* ¡IMPORTANTE! */
+    animation: slight-shake 0.2s infinite linear;
+}
+
+/* MODO CRÍTICO (POCO TIEMPO) */
+.timer.critical .timer-bar {
+    background: linear-gradient(90deg, 
+        #ff0000 0%, 
+        #ff0000 100%);
+    animation: 
+        critical-pulse 0.5s infinite alternate;
+}
+
+/* ANIMACIONES CLAVE */
+@keyframes gradient-flow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
+}
+
+@keyframes pulse-glow {
+    0% { opacity: 0.9; box-shadow: 0 0 5px rgba(0, 255, 0, 0.3); }
+    100% { opacity: 1; box-shadow: 0 0 15px rgba(0, 255, 0, 0.6); }
+}
+
+@keyframes scan {
+    0% { background-position: 0 0; }
+    100% { background-position: 4px 0; }
+}
+
+@keyframes slight-shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-0.5px); }
+    75% { transform: translateX(0.5px); }
+}
+
+@keyframes critical-pulse {
+    0% { opacity: 0.7; box-shadow: 0 0 10px rgba(255, 0, 0, 0.8); }
+    100% { opacity: 1; box-shadow: 0 0 20px rgba(255, 0, 0, 1); }
+}
+
+/* POSICIONES (SEGÚN TUS CLASES) */
 .timer.player1-timer {
     top: 12px;
     right: 515px;
 }
 
-/* Barra de tiempo para jugador 2 */
 .timer.player2-timer {
     top: 12px;
     right: -40px;
 }
 
-/* Mostrar solo la barra del jugador activo */
-.timer.active {
-    display: block;
-}
 
-.timer-bar {
-    height: 100%;
-    background-color: #0f0;
-    transition: width 1s linear;
-    border-radius: 5px;
-}
 
 .countdown {
     position: absolute;
@@ -340,7 +409,7 @@ input {
     }
 }
 
-.player1 { left: calc(50% - 150px); }
+.player1 { left: calc(50% - 157px); }
 .player2 { left: calc(50% + 100px); }
 @import url('https://fonts.googleapis.com/css2?family=Bangers&display=swap');
 
@@ -376,7 +445,7 @@ input {
     50% { transform: translateY(-5px) skewX(-5deg); }
 }
 
-.player1-name { left: calc(50% - 178px); }
+.player1-name { left: calc(50% - 186px); }
 .player2-name { left: calc(50% + 70px); }
 .turn-indicator {
     position: absolute;
@@ -411,3 +480,53 @@ input {
     color: white;
     text-shadow: 2px 2px 4px black;
 }
+
+@media only screen and (max-width: 768px) {
+    .round {
+        top: -67px;
+        left: 50%;
+        transform: translateX(-50%) skewX(-5deg);
+        font-size: 18px;
+        padding: 4px 8px;
+    }
+
+    .score-container {
+        top: 350px;
+        left: 0;
+        width: 100%;
+        display: block; /* Quitamos space-between */
+        pointer-events: none;
+        z-index: 100;
+        filter: drop-shadow(0 0 8px rgba(255, 50, 50, 0.7));
+    }
+
+    .score-player {
+        font-size: 28px;
+        padding: 6px 15px;
+        border: 4px solid #000;
+        position: absolute; /* Posicionamiento individual */
+    }
+
+    .score-player.player1-score {
+        top: 50px;
+        left: 18%; /* Ajusta este valor para mover el puntaje del jugador 1 */
+        transform: translateX(0); /* Sin desplazamiento adicional */
+    }
+
+    .score-player.player2-score {
+        top: 50px;
+        right: 28%; /* Ajusta este valor para mover el puntaje del jugador 2 */
+        transform: translateX(0); /* Sin desplazamiento adicional */
+    }
+    .timer.player1-timer {
+        top: 45px;
+        right: 110px;
+    }
+    
+    /* Barra de tiempo para jugador 2 */
+    .timer.player2-timer {
+        top: 45px;
+        left: 110px;
+    }
+}
+
