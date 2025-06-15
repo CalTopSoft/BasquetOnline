@@ -529,13 +529,13 @@ input {
     }
     .timer.player1-timer {
         top: 38px;
-        right: 110px;
+        left: 110px;
     }
     
     /* Barra de tiempo para jugador 2 */
     .timer.player2-timer {
         top: 38px;
-        left: 110px;
+        right: 110px;
     }
     .player-name, .round, .score-player {
         font-family: 'Impact', cursive;
