@@ -390,6 +390,7 @@ wss.on('connection', (ws) => {
             const data = JSON.parse(message);
 
             if (data.type === 'join') {
+                console.log(`Processing join for ${data.room} by ${data.name}`);
                 const room = rooms[data.room];
                 if (room.players.length < 2) {
                     const playerIndex = room.players.length;
