@@ -148,117 +148,142 @@
             useEffect(() => {
                 SoundManager.init();
 
-                const wsUrl = 'wss://basquetonline.onrender.com';
-                wsRef.current = new WebSocket(wsUrl);
+                const initializeWebSocket = () => {
+                    const wsUrl = 'wss://basquetonline.onrender.com';
+                    wsRef.current = new WebSocket(wsUrl);
 
-                wsRef.current.onopen = () => {
-                    console.log("Conectado al servidor WebSocket");
-                    wsRef.current.send(JSON.stringify({ type: 'getRooms' }));
-                    wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
-                };
+                    wsRef.current.onopen = () => {
+                        console.log("Conectado al servidor WebSocket");
+                        wsRef.current.send(JSON.stringify({ type: 'getRooms' }));
+                        wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
+                    };
 
-                wsRef.current.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
+                    wsRef.current.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
 
-                    if (data.type === 'rooms') {
-                        roomStatusRef.current = data.rooms;
-                    }
-
-                    if (data.type === 'joined') {
-                        setRoom(data.room);
-                        playersRef.current = data.players;
-                        playerIndexRef.current = data.playerIndex;
-                        playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
-                        setScreen('gameplay');
-                    }
-
-                    if (data.type === 'start') {
-                        setGameStarted(true);
-                        playersRef.current = data.players;
-                        scoresRef.current = data.scores;
-                        roundRef.current = data.round;
-                        turnRef.current = data.turn;
-                        playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
-                        SoundManager.playBackground();
-                        SoundManager.stopWheels();
-                    }
-
-                    if (data.type === 'update') {
-                        scoresRef.current = data.scores;
-                        roundRef.current = data.round;
-                        playersRef.current = data.players;
-                        turnRef.current = data.turn;
-                        playerIconsRef.current = data.playerIcons || playerIconsRef.current;
-                        
-                        if (lastBallStateRef.current && data.ball) {
-                            // Eliminamos la lógica de score aquí
+                        if (data.type === 'rooms') {
+                            roomStatusRef.current = data.rooms;
                         }
-                        lastBallStateRef.current = { ...data.ball, scores: [...data.scores] };
-                    }
 
-                    if (data.type === 'bounce') {
-                        SoundManager.playSound('bounce');
-                    }
+                        if (data.type === 'joined') {
+                            setRoom(data.room);
+                            playersRef.current = data.players;
+                            playerIndexRef.current = data.playerIndex;
+                            playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
+                            setScreen('gameplay');
+                        }
 
-                    if (data.type === 'hoopHit') {
-                        SoundManager.playSound('hoopHit');
-                    }
-
-                    if (data.type === 'newRound') {
-                        roundRef.current = data.round;
-                        scoresRef.current = data.scores;
-                        playersRef.current = data.players;
-                        turnRef.current = data.turn;
-                        playerIconsRef.current = data.playerIcons || playerIconsRef.current;
-                        if (data.round === 2 || data.round === 3) {
-                            SoundManager.playWheels();
-                        } else {
+                        if (data.type === 'start') {
+                            setGameStarted(true);
+                            playersRef.current = data.players;
+                            scoresRef.current = data.scores;
+                            roundRef.current = data.round;
+                            turnRef.current = data.turn;
+                            playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
+                            SoundManager.playBackground();
                             SoundManager.stopWheels();
                         }
-                    }
-                        
-                    if (data.type === 'scoreUpdate') {
-                        scoresRef.current = data.scores;
-                        playerIconsRef.current = data.playerIcons || playerIconsRef.current;
-                        SoundManager.playSound('score');
-                        SoundManager.playSound('scoreAdd');
-                    }
 
-                    if (data.type === 'end') {
-                        setWinner(data.winner);
-                        setScreen('result');
-                        setGameStarted(false);
-                        SoundManager.stopWheels();
-                        console.log(`Resultado: winner=${data.winner}, name=${nameRef.current}`);
-                        if (data.winner === nameRef.current) {
-                            SoundManager.playSound('win');
-                        } else if (data.winner !== 'tie' && data.winner !== 'Desconectado') {
-                            SoundManager.playSound('lose');
+                        if (data.type === 'update') {
+                            scoresRef.current = data.scores;
+                            roundRef.current = data.round;
+                            playersRef.current = data.players;
+                            turnRef.current = data.turn;
+                            playerIconsRef.current = data.playerIcons || playerIconsRef.current;
+                            lastBallStateRef.current = { ...data.ball, scores: [...data.scores] };
                         }
-                    }
 
-                    if (data.type === 'rankings') {
-                        rankingsRef.current = data.rankings;
-                    }
+                        if (data.type === 'bounce') {
+                            SoundManager.playSound('bounce');
+                        }
 
-                    if (data.type === 'full') {
-                        alert("La sala está llena. Por favor, elige otra sala.");
-                        setScreen('rooms');
-                    }
+                        if (data.type === 'hoopHit') {
+                            SoundManager.playSound('hoopHit');
+                        }
+
+                        if (data.type === 'newRound') {
+                            roundRef.current = data.round;
+                            scoresRef.current = data.scores;
+                            playersRef.current = data.players;
+                            turnRef.current = data.turn;
+                            playerIconsRef.current = data.playerIcons || playerIconsRef.current;
+                            if (data.round === 2 || data.round === 3) {
+                                SoundManager.playWheels();
+                            } else {
+                                SoundManager.stopWheels();
+                            }
+                        }
+
+                        if (data.type === 'scoreUpdate') {
+                            scoresRef.current = data.scores;
+                            playerIconsRef.current = data.playerIcons || playerIconsRef.current;
+                            SoundManager.playSound('score');
+                            SoundManager.playSound('scoreAdd');
+                        }
+
+                        if (data.type === 'end') {
+                            setWinner(data.winner);
+                            setScreen('result');
+                            setGameStarted(false);
+                            SoundManager.stopWheels();
+                            console.log(`Resultado: winner=${data.winner}, name=${nameRef.current}`);
+                            if (data.winner === nameRef.current) {
+                                SoundManager.playSound('win');
+                            } else if (data.winner !== 'tie' && data.winner !== 'Desconectado') {
+                                SoundManager.playSound('lose');
+                            }
+                        }
+
+                        if (data.type === 'rankings') {
+                            rankingsRef.current = data.rankings;
+                        }
+
+                        if (data.type === 'full') {
+                            alert("La sala está llena. Por favor, elige otra sala.");
+                            setScreen('rooms');
+                        }
+                    };
+
+                    wsRef.current.onclose = () => {
+                        console.log("Desconectado del servidor WebSocket");
+                        SoundManager.stopBackground();
+                    };
                 };
 
-                wsRef.current.onclose = () => {
-                    console.log("Desconectado del servidor WebSocket");
-                    SoundManager.stopBackground();
-                };
+                initializeWebSocket();
 
                 return () => {
                     if (wsRef.current) {
                         wsRef.current.close();
+                        wsRef.current = null;
                     }
                     SoundManager.cleanup();
                 };
             }, []);
+
+            useEffect(() => {
+                if (screen === 'rooms' && !wsRef.current) {
+                    const wsUrl = 'wss://basquetonline.onrender.com';
+                    wsRef.current = new WebSocket(wsUrl);
+
+                    wsRef.current.onopen = () => {
+                        console.log("Reconectado al servidor WebSocket en rooms");
+                        wsRef.current.send(JSON.stringify({ type: 'getRooms' }));
+                    };
+
+                    wsRef.current.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'rooms') {
+                            roomStatusRef.current = data.rooms;
+                        }
+                    };
+
+                    wsRef.current.onclose = () => {
+                        console.log("WebSocket cerrado en rooms");
+                        wsRef.current = null;
+                    };
+                }
+            }, [screen]);
 
             const Home = ({ setScreen, nameRef }) => {
                 const [localName, setLocalName] = useState(nameRef.current);
@@ -501,7 +526,7 @@
                 );
             };
 
-            const Gameplay = ({ name }) => {
+            const Gameplay = ({ name, setScreen }) => {
                 const [forceUpdate, setForceUpdate] = useState(0);
                 const sketchRef = useRef(null);
                 const p5Instance = useRef(null);
@@ -531,13 +556,11 @@
 
                     p.setup = () => {
                         p.createCanvas(600, 400);
-                        p.frameRate(62); //FPS DEL JUEGO 
+                        p.frameRate(62);
                     };
 
                     p.draw = () => {
                         p.clear();
-                        // p.background(220, 220, 220, 50); // Fondo gris claro semitransparente para verificar renderizado
-
                         ballRef.current.x = ballRef.current.x || 300;
                         ballRef.current.y = ballRef.current.y || 370;
                         hoopXRef.current = hoopXRef.current || 300;
@@ -547,7 +570,6 @@
                         const hoopRingWidth = 75;
                         const hoopRingHeight = hoopRingWidth * (499 / 788);
 
-                        // Dibujar imágenes
                         if (ballImg && hoopBaseImg && hoopRingImg) {
                             p.image(hoopBaseImg, hoopXRef.current - hoopBaseWidth / 1.98, 40, hoopBaseWidth, hoopBaseHeight);
                             ballScale = p.map(ballRef.current.y, 370, 113, 1, 0.8);
@@ -576,8 +598,6 @@
                             p.fill(0, 255, 0);
                         }
                     };
-
-
 
                     p.mousePressed = () => {
                         if (gameStarted && turnRef.current === playerIndexRef.current && !ballRef.current.thrown && attemptsRef.current[playerIndexRef.current] < 5) {
@@ -657,6 +677,24 @@
                     };
                 }, []);
 
+                const handleExit = () => {
+                    if (wsRef.current) {
+                        wsRef.current.send(JSON.stringify({ type: 'leave', room: room }));
+                        wsRef.current.close();
+                        wsRef.current = null;
+                    }
+                    setRoom(null);
+                    setGameStarted(false);
+                    playersRef.current = [];
+                    scoresRef.current = [0, 0];
+                    roundRef.current = 1;
+                    turnRef.current = 0;
+                    playerIndexRef.current = null;
+                    playerIconsRef.current = ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
+                    SoundManager.cleanup();
+                    setScreen('rooms');
+                };
+
                 return (
                     <div className="gameplay">
                         <div className="game-container">
@@ -665,7 +703,6 @@
                                 <div className="score-player player1-score">{scoresRef.current[0]}</div>
                                 <div className="score-player player2-score">{scoresRef.current[1]}</div>
                             </div>
-
                             <div className="turn">Turno: {playersRef.current[turnRef.current] || 'Esperando...'}</div>
                             <div className="round">Ronda {roundRef.current}/3</div>
                             {playersRef.current[0] && (
@@ -692,7 +729,12 @@
                                 </>
                             )}
                             {countdownRef.current > 0 && <div className="countdown">{countdownRef.current}</div>}
-                            {!gameStarted && <div className="waiting-message">Esperando al segundo jugador...</div>}
+                            {!gameStarted && (
+                                <>
+                                    <div className="waiting-message">Esperando al segundo jugador...</div>
+                                    <button className="exit-button" onClick={handleExit}>Salir</button>
+                                </>
+                            )}
                         </div>
                     </div>
                 );
@@ -841,9 +883,7 @@
                 <div>
                     {screen === 'home' && <Home setScreen={setScreen} nameRef={nameRef} />}
                     {screen === 'rooms' && <Rooms setScreen={setScreen} />}
-                    {screen === 'gameplay' && (
-                        <Gameplay name={nameRef.current} />
-                    )}
+                    {screen === 'gameplay' && ( <Gameplay name={nameRef.current} setScreen={setScreen} /> )}
                     {screen === 'rankings' && <Rankings setScreen={setScreen} />}
                     {screen === 'credits' && <Credits setScreen={setScreen} />}
                     {screen === 'result' && <Result winner={winner} nameRef={nameRef} setScreen={setScreen} />}
