@@ -388,9 +388,10 @@ wss.on('connection', (ws) => {
     ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);
+            console.log(`Mensaje recibido: ${JSON.stringify(data)}`);
 
             if (data.type === 'join') {
-                console.log(`Processing join for ${data.room} by ${data.name}`);
+                console.log(`Procesando join para ${data.room} por ${data.name}`);
                 const room = rooms[data.room];
                 if (room.players.length < 2) {
                     const playerIndex = room.players.length;
@@ -474,6 +475,7 @@ wss.on('connection', (ws) => {
             }
 
             if (data.type === 'leave') {
+                console.log(`Procesando leave para ${data.room}`);
                 const room = rooms[data.room];
                 const index = room.players.findIndex(p => p.ws === ws);
                 if (index !== -1) {
@@ -498,6 +500,7 @@ wss.on('connection', (ws) => {
     });
 
     ws.on('close', () => {
+        console.log('Cliente desconectado');
         for (const roomName in rooms) {
             const room = rooms[roomName];
             const index = room.players.findIndex(p => p.ws === ws);
