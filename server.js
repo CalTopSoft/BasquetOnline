@@ -69,7 +69,7 @@ const updateGameState = () => {
 
         const now = Date.now();
 
-        if (now - room.lastTimerUpdate >= 1000 && !room.ball.thrown && !room.shotInProgress) {
+        if (now - room.lastTimerUpdate >= 1000 && !room.shotInProgress) {
             room.timer -= 1;
             room.lastTimerUpdate = now;
             if (room.timer <= 0) {
