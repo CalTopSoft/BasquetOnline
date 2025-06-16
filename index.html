@@ -14,12 +14,13 @@
     <link rel="stylesheet" href="public/styles/rankings.css">
     <link rel="stylesheet" href="public/styles/rooms.css">
     <link rel="stylesheet" href="public/styles/icon-selection.css">
+    <link rel="stylesheet" href="public/styles/gameplay.css">
     <link rel="icon" href="img/iconoweb/favicon.ico" type="image/x-icon">
 </head>
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo, memo } = React;
 
         const SoundManager = (() => {
             let backgroundSound = null;
@@ -50,17 +51,13 @@
 
                 [backgroundSound, bounceSound, hoopHitSound, wheelsSound, scoreSound, scoreAddSound, winSound, loseSound].forEach(sound => {
                     sound.onerror = () => console.error(`Error al cargar ${sound.src}`);
-                    sound.onloadeddata = () => console.log(`${sound.src} cargado`);
                 });
-
-                console.log("SoundManager inicializado con API de audio nativa");
             };
 
             const playBackground = () => {
                 if (backgroundSound && !isSoundPlaying) {
-                    backgroundSound.play().catch(err => console.error("Error al reproducir el sonido de fondo:", err));
+                    backgroundSound.play().catch(err => console.error("Error al reproducir fondo:", err));
                     isSoundPlaying = true;
-                    console.log("Se inició el sonido de fondo.");
                 }
             };
 
@@ -69,7 +66,6 @@
                     backgroundSound.pause();
                     backgroundSound.currentTime = 0;
                     isSoundPlaying = false;
-                    console.log("El sonido de fondo se detuvo");
                 }
             };
 
@@ -77,7 +73,6 @@
                 if (wheelsSound && !isWheelsPlaying) {
                     wheelsSound.play().catch(err => console.error("Error al reproducir wheels:", err));
                     isWheelsPlaying = true;
-                    console.log("Sonido wheels iniciado");
                 }
             };
 
@@ -86,7 +81,6 @@
                     wheelsSound.pause();
                     wheelsSound.currentTime = 0;
                     isWheelsPlaying = false;
-                    console.log("Sonido wheels detenido");
                 }
             };
 
@@ -102,8 +96,7 @@
                 const sound = soundMap[soundType];
                 if (sound) {
                     sound.currentTime = 0;
-                    sound.play().catch(err => console.error(`Error al reproducir ${soundType} sonido:`, err));
-                    console.log(`${soundType} sonido reproducido`);
+                    sound.play().catch(err => console.error(`Error al reproducir ${soundType}:`, err));
                 }
             };
 
@@ -122,13 +115,11 @@
         })();
 
         const App = () => {
-            console.log("Componente de aplicación renderizado");
-
             const [screen, setScreen] = useState('home');
             const nameRef = useRef('Jugador1');
             const [room, setRoom] = useState(null);
             const [gameStarted, setGameStarted] = useState(false);
-            const [winner, setWinner] = useState(null);
+            const [winnerData, setWinnerData] = useState(null);
             const playersRef = useRef([]);
             const scoresRef = useRef([0, 0]);
             const roundRef = useRef(1);
@@ -136,7 +127,6 @@
             const countdownRef = useRef(0);
             const [rankings, setRankings] = useState([]);
             const [roomStatus, setRoomStatus] = useState({ room1: { players: 0 }, room2: { players: 0 } });
-            const [roomStatusKey, setRoomStatusKey] = useState(0);
             const playerIndexRef = useRef(null);
             const wsRef = useRef(null);
             const lastBallStateRef = useRef(null);
@@ -146,7 +136,6 @@
 
             const initializeWebSocket = () => {
                 if (wsInitialized.current && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                    console.log("WebSocket ya inicializado y abierto, omitiendo creación");
                     return;
                 }
 
@@ -161,26 +150,24 @@
                 wsInitialized.current = true;
 
                 wsRef.current.onopen = () => {
-                    console.log("Conectado al servidor WebSocket");
-                    if (wsRef.current) {
-                        wsRef.current.send(JSON.stringify({ type: 'getRooms' }));
-                        wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
-                    }
+                    setTimeout(() => {
+                        if (wsRef.current) {
+                            wsRef.current.send(JSON.stringify({ type: 'getRooms' }));
+                            wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
+                        }
+                    }, 500);
                 };
 
                 wsRef.current.onmessage = (event) => {
                     try {
                         const data = JSON.parse(event.data);
-                        console.log("Mensaje recibido del WebSocket:", data);
+                        // console.log("Mensaje recibido del WebSocket:", data); // Comentar en producción
 
                         if (data.type === 'rooms') {
                             setRoomStatus(data.rooms);
-                            setRoomStatusKey(prev => prev + 1);
-                            console.log("Estado de salas actualizado:", data.rooms);
                         }
 
                         if (data.type === 'joined') {
-                            console.log(`Unido a la sala ${data.room}`);
                             setRoom(data.room);
                             playersRef.current = data.players;
                             playerIndexRef.current = data.playerIndex;
@@ -189,7 +176,6 @@
                         }
 
                         if (data.type === 'start') {
-                            console.log("Juego iniciado");
                             setGameStarted(true);
                             playersRef.current = data.players;
                             scoresRef.current = data.scores;
@@ -238,8 +224,8 @@
                         }
 
                         if (data.type === 'end') {
-                            console.log(`Juego terminado, ganador: ${data.winner}`);
-                            setWinner(data.winner);
+                            console.log(`Juego terminado, datos: ${JSON.stringify(data)}`);
+                            setWinnerData(data);
                             setScreen('result');
                             setGameStarted(false);
                             setRoom(null);
@@ -250,20 +236,19 @@
                             playerIndexRef.current = null;
                             playerIconsRef.current = ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
                             SoundManager.stopWheels();
-                            if (data.winner === nameRef.current) {
+                            if (data.winnerIndex === playerIndexRef.current) {
                                 SoundManager.playSound('win');
-                            } else if (data.winner !== 'tie' && data.winner !== 'Desconectado') {
+                            } else if (data.winnerIndex !== -1 && data.winnerName !== 'Desconectado') {
                                 SoundManager.playSound('lose');
                             }
                         }
 
                         if (data.type === 'rankings') {
+                            console.log("Rankings recibidos:", data.rankings);
                             setRankings(data.rankings);
-                            console.log("Rankings actualizados:", data.rankings);
                         }
 
                         if (data.type === 'full') {
-                            console.log("Sala llena, volviendo a rooms");
                             alert("La sala está llena. Por favor, elige otra sala.");
                             setScreen('rooms');
                         }
@@ -273,24 +258,21 @@
                 };
 
                 wsRef.current.onclose = () => {
-                    console.log("Desconectado del servidor WebSocket");
-                    SoundManager.stopBackground();
                     wsRef.current = null;
                     wsInitialized.current = false;
-                    setTimeout(initializeWebSocket, 1000);
+                    setTimeout(initializeWebSocket, 500);
                 };
             };
 
             useEffect(() => {
                 SoundManager.init();
                 initializeWebSocket();
-
                 return () => {
                     // No cerrar WebSocket aquí
                 };
             }, []);
 
-            const Home = ({ setScreen, nameRef }) => {
+            const Home = memo(({ setScreen, nameRef }) => {
                 const [localName, setLocalName] = useState(nameRef.current);
 
                 const handleChange = (e) => {
@@ -358,22 +340,41 @@
                         </div>
                     </div>
                 );
-            };
+            });
 
-            const Rooms = ({ setScreen }) => {
+            const RoomCard = memo(({ roomName, players, onJoin, disabled }) => {
+                return (
+                    <div className="room-card" id={`${roomName}-card`}>
+                        <div className="room-header">
+                            <span className="room-name">{roomName === 'room1' ? 'Cancha 1' : 'Cancha 2'}</span>
+                            <span className="room-status">({players}/2)</span>
+                        </div>
+                        <div className="room-content">
+                            <p className="room-info">
+                                {roomName === 'room1' ? '¡Dribla, encesta y triunfa!' : '¡Anota el punto ganador!'}
+                            </p>
+                            <button
+                                className={`room-button ${disabled ? 'disabled' : ''}`}
+                                onClick={() => onJoin(roomName)}
+                                disabled={disabled}
+                            >
+                                Jugar
+                            </button>
+                        </div>
+                    </div>
+                );
+            });
+
+            const Rooms = memo(({ setScreen }) => {
                 const [showIconSelection, setShowIconSelection] = useState(false);
                 const [selectedRoom, setSelectedRoom] = useState(null);
 
-                console.log("Renderizando Rooms");
-
                 const handleJoinRoom = (roomName) => {
-                    console.log(`Intentando unirse a ${roomName}`);
                     setSelectedRoom(roomName);
                     setShowIconSelection(true);
                 };
 
                 const handleIconSelected = (icon) => {
-                    console.log(`Icono seleccionado: ${icon}, uniendo a ${selectedRoom}`);
                     selectedIconRef.current = icon;
                     if (wsRef.current && selectedRoom) {
                         wsRef.current.send(JSON.stringify({
@@ -391,75 +392,57 @@
                     setSelectedRoom(null);
                 };
 
+                const roomList = useMemo(() => (
+                    <div className="rooms-list">
+                        <RoomCard
+                            roomName="room1"
+                            players={roomStatus.room1.players}
+                            onJoin={handleJoinRoom}
+                            disabled={roomStatus.room1.players >= 2}
+                        />
+                        <RoomCard
+                            roomName="room2"
+                            players={roomStatus.room2.players}
+                            onJoin={handleJoinRoom}
+                            disabled={roomStatus.room2.players >= 2}
+                        />
+                    </div>
+                ), [roomStatus.room1.players, roomStatus.room2.players]);
+
                 return (
-                    <div className="rooms-container" key={roomStatusKey}>
+                    <div className="rooms-container">
                         {showIconSelection ? (
                             <IconSelection onSelect={handleIconSelected} onBack={handleBack} />
                         ) : (
                             <>
-                                <h1 className="rooms-title">Salas de Baloncesto</h1>
-                                <div className="court-lines">
-                                    <div className="court-line court-line-1"></div>
-                                    <div className="court-line court-line-2"></div>
-                                    <div className="court-line court-line-3"></div>
-                                </div>
-                                <div className="basketball-animation">
-                                    <div className="basketball-ball ball-1"></div>
-                                    <div className="basketball-ball ball-2"></div>
-                                    <div className="basketball-ball ball-3"></div>
-                                </div>
-                                <div className="hoop-animation hoop-left">
-                                    <div className="hoop-ring"></div>
-                                    <div className="hoop-net"></div>
-                                </div>
-                                <div className="hoop-animation hoop-right">
-                                    <div className="hoop-ring"></div>
-                                    <div className="hoop-net"></div>
-                                </div>
-                                <div className="crowd-animation">
-                                    <div className="crowd-person crowd-person-1"></div>
-                                    <div className="crowd-person crowd-person-2"></div>
-                                    <div className="crowd-person crowd-person-3"></div>
-                                    <div className="crowd-person crowd-person-4"></div>
-                                </div>
-                                <div className="rooms-list">
-                                    <div className="room-card" id="room1-card">
-                                        <div className="room-header">
-                                            <span className="room-name">Cancha 1</span>
-                                            <span className="room-status">
-                                                ({roomStatus.room1.players}/2)
-                                            </span>
-                                        </div>
-                                        <div className="room-content">
-                                            <p className="room-info">¡Dribla, encesta y triunfa!</p>
-                                            <button 
-                                                className={`room-button ${roomStatus.room1.players >= 2 ? 'disabled' : ''}`}
-                                                onClick={() => handleJoinRoom('room1')} 
-                                                disabled={roomStatus.room1.players >= 2}
-                                            >
-                                                Jugar
-                                            </button>
-                                        </div>
+                                <div className="rooms-static">
+                                    <h1 className="rooms-title">Salas de Baloncesto</h1>
+                                    <div className="court-lines">
+                                        <div className="court-line court-line-1"></div>
+                                        <div className="court-line court-line-2"></div>
+                                        <div className="court-line court-line-3"></div>
                                     </div>
-                                    <div className="room-card" id="room2-card">
-                                        <div className="room-header">
-                                            <span className="room-name">Cancha 2</span>
-                                            <span className="room-status">
-                                                ({roomStatus.room2.players}/2)
-                                            </span>
-                                        </div>
-                                        <div className="room-content">
-                                            <p className="room-info">¡Anota el punto ganador!</p>
-                                            <button 
-                                                className={`room-button ${roomStatus.room2.players >= 2 ? 'disabled' : ''}`}
-                                                onClick={() => handleJoinRoom('room2')} 
-                                                disabled={roomStatus.room2.players >= 2}
-                                            >
-                                                Jugar
-                                            </button>
-                                        </div>
+                                    <div className="basketball-animation">
+                                        <div className="basketball-ball ball-1"></div>
+                                        <div className="basketball-ball ball-2"></div>
+                                        <div className="basketball-ball ball-3"></div>
+                                    </div>
+                                    <div className="hoop-animation hoop-left">
+                                        <div className="hoop-ring"></div>
+                                        <div className="hoop-net"></div>
+                                    </div>
+                                    <div className="hoop-animation hoop-right">
+                                        <div className="hoop-ring"></div>
+                                        <div className="hoop-net"></div>
+                                    </div>
+                                    <div className="crowd-animation">
+                                        <div className="crowd-person crowd-person-1"></div>
+                                        <div className="crowd-person crowd-person-2"></div>
+                                        <div className="crowd-person crowd-person-3"></div>
+                                        <div className="crowd-person crowd-person-4"></div>
                                     </div>
                                 </div>
+                                {roomList}
                                 <button className="back-button" onClick={() => setScreen('home')}>
                                     Volver a la Cancha Principal
                                 </button>
@@ -467,9 +450,9 @@
                         )}
                     </div>
                 );
-            };
+            });
 
-            const IconSelection = ({ onSelect, onBack }) => {
+            const IconSelection = memo(({ onSelect, onBack }) => {
                 const [category, setCategory] = useState('Memes');
 
                 const memeIcons = [
@@ -532,7 +515,7 @@
                         </button>
                     </div>
                 );
-            };
+            });
 
             const Gameplay = ({ name, setScreen }) => {
                 const [forceUpdate, setForceUpdate] = useState(0);
@@ -556,7 +539,6 @@
                             ballImg = p.loadImage('img/balon/ball.png');
                             hoopBaseImg = p.loadImage('img/arco/hoop_base.png');
                             hoopRingImg = p.loadImage('img/arco/hoop_ring.png');
-                            console.log("Recursos cargados exitosamente");
                         } catch (error) {
                             console.error("Error al cargar recursos:", error);
                         }
@@ -598,13 +580,6 @@
                                 drawRotatedBall();
                             }
                         }
-
-                        if (gameStarted) {
-                            const timerWidth = p.map(timerRef.current, 0, 8, 0, 100);
-                            p.noStroke();
-                            p.fill(255, 0, 0);
-                            p.fill(0, 255, 0);
-                        }
                     };
 
                     p.mousePressed = () => {
@@ -639,10 +614,6 @@
 
                             dragging = false;
                         }
-                    };
-
-                    p.mouseDragged = () => {
-                        if (dragging) console.log("Arrastrando en progreso...");
                     };
                 };
 
@@ -690,7 +661,6 @@
                 }, []);
 
                 const handleExit = () => {
-                    console.log(`Saliendo de la sala ${room}`);
                     if (wsRef.current) {
                         wsRef.current.send(JSON.stringify({ type: 'leave', room: room }));
                     }
@@ -704,7 +674,6 @@
                     playerIconsRef.current = ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
                     SoundManager.cleanup();
                     setScreen('rooms');
-                    setRoomStatusKey(prev => prev + 1);
                 };
 
                 return (
@@ -729,7 +698,6 @@
                                     <div className="player-name player2-name">{playersRef.current[1]}</div>
                                 </>
                             )}
-                            <div className="turn-indicator" style={{ display: 'none' }}>Modo Edición - Sin Turnos</div>
                             {gameStarted && (
                                 <>
                                     <div className={`timer player1-timer ${turnRef.current === 0 ? 'active' : ''}`}>
@@ -741,18 +709,14 @@
                                 </>
                             )}
                             {countdownRef.current > 0 && <div className="countdown">{countdownRef.current}</div>}
-                            {!gameStarted && (
-                                <>
-                                    <div className="waiting-message">Esperando al segundo jugador...</div>
-                                    <button className="exit-button" onClick={handleExit}>Salir</button>
-                                </>
-                            )}
+                            {!gameStarted && <div className="waiting-message">Esperando al segundo jugador...</div>}
                         </div>
+                        {!gameStarted && <button className="exit-button" onClick={handleExit}>Salir</button>}
                     </div>
                 );
             };
 
-            const Rankings = ({ setScreen, rankings }) => {
+            const Rankings = memo(({ setScreen, rankings }) => {
                 return (
                     <div className="rankings-container">
                         <div className="court-lines">
@@ -808,9 +772,9 @@
                         <button className="back-button" onClick={() => setScreen('home')}>Volver</button>
                     </div>
                 );
-            };
+            });
 
-            const Credits = ({ setScreen }) => {
+            const Credits = memo(({ setScreen }) => {
                 return (
                     <div className="credits-container">
                         <div className="court-lines">
@@ -865,18 +829,18 @@
                         <button className="back-button" onClick={() => setScreen('home')}>Volver</button>
                     </div>
                 );
-            };
+            });
 
-            const Result = ({ winner, nameRef, setScreen, setRoomStatusKey }) => {
+            const Result = memo(({ winnerData, nameRef, setScreen }) => {
                 const getResultMessage = () => {
-                    if (winner === 'tie') return '¡Empate!';
-                    if (winner === 'Desconectado') return 'Partida cancelada - Jugador desconectado';
-                    if (winner === nameRef.current) return '¡Ganaste!';
+                    console.log(`Result: winnerData=${JSON.stringify(winnerData)}, nameRef=${nameRef.current}, playerIndex=${playerIndexRef.current}`);
+                    if (winnerData.winnerIndex === -1) return '¡Empate!';
+                    if (winnerData.winnerName === 'Desconectado') return 'Partida cancelada - Jugador desconectado';
+                    if (winnerData.winnerIndex === playerIndexRef.current) return '¡Ganaste!';
                     return 'Perdiste';
                 };
 
                 const handleBack = () => {
-                    setRoomStatusKey(prev => prev + 1);
                     setScreen('rooms');
                 };
 
@@ -886,7 +850,7 @@
                         <button onClick={handleBack}>Volver</button>
                     </div>
                 );
-            };
+            });
 
             return (
                 <div>
@@ -895,7 +859,7 @@
                     {screen === 'gameplay' && <Gameplay name={nameRef.current} setScreen={setScreen} />}
                     {screen === 'rankings' && <Rankings setScreen={setScreen} rankings={rankings} />}
                     {screen === 'credits' && <Credits setScreen={setScreen} />}
-                    {screen === 'result' && <Result winner={winner} nameRef={nameRef} setScreen={setScreen} setRoomStatusKey={setRoomStatusKey} />}
+                    {screen === 'result' && <Result winnerData={winnerData} nameRef={nameRef} setScreen={setScreen} />}
                 </div>
             );
         };
