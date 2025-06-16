@@ -136,6 +136,7 @@
             const countdownRef = useRef(0);
             const rankingsRef = useRef([]);
             const [roomStatus, setRoomStatus] = useState({ room1: { players: 0 }, room2: { players: 0 } });
+            const [roomStatusKey, setRoomStatusKey] = useState(0);
             const playerIndexRef = useRef(null);
             const wsRef = useRef(null);
             const lastBallStateRef = useRef(null);
@@ -143,143 +144,148 @@
             const playerIconsRef = useRef(['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png']);
             const wsInitialized = useRef(false);
 
-            useEffect(() => {
-                SoundManager.init();
-
-                const initializeWebSocket = () => {
-                    if (wsInitialized.current && wsRef.current) {
-                        console.log("WebSocket ya inicializado, omitiendo creación");
-                        return;
-                    }
-
-                    const wsUrl = 'wss://basquetonline.onrender.com';
-                    wsRef.current = new WebSocket(wsUrl);
-                    wsInitialized.current = true;
-
-                    wsRef.current.onopen = () => {
-                        console.log("Conectado al servidor WebSocket");
-                        if (wsRef.current) {
-                            wsRef.current.send(JSON.stringify({ type: 'getRooms' }));
-                            wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
-                        }
-                    };
-
-                    wsRef.current.onmessage = (event) => {
-                        try {
-                            const data = JSON.parse(event.data);
-                            console.log("Mensaje recibido del WebSocket:", data);
-
-                            if (data.type === 'rooms') {
-                                setRoomStatus(data.rooms);
-                                console.log("Estado de salas actualizado:", data.rooms);
-                            }
-
-                            if (data.type === 'joined') {
-                                console.log(`Unido a la sala ${data.room}`);
-                                setRoom(data.room);
-                                playersRef.current = data.players;
-                                playerIndexRef.current = data.playerIndex;
-                                playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
-                                setScreen('gameplay');
-                            }
-
-                            if (data.type === 'start') {
-                                console.log("Juego iniciado");
-                                setGameStarted(true);
-                                playersRef.current = data.players;
-                                scoresRef.current = data.scores;
-                                roundRef.current = data.round;
-                                turnRef.current = data.turn;
-                                playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
-                                SoundManager.playBackground();
-                                SoundManager.stopWheels();
-                            }
-
-                            if (data.type === 'update') {
-                                scoresRef.current = data.scores;
-                                roundRef.current = data.round;
-                                playersRef.current = data.players;
-                                turnRef.current = data.turn;
-                                playerIconsRef.current = data.playerIcons || playerIconsRef.current;
-                                lastBallStateRef.current = { ...data.ball, scores: [...data.scores] };
-                            }
-
-                            if (data.type === 'bounce') {
-                                SoundManager.playSound('bounce');
-                            }
-
-                            if (data.type === 'hoopHit') {
-                                SoundManager.playSound('hoopHit');
-                            }
-
-                            if (data.type === 'newRound') {
-                                roundRef.current = data.round;
-                                scoresRef.current = data.scores;
-                                playersRef.current = data.players;
-                                turnRef.current = data.turn;
-                                playerIconsRef.current = data.playerIcons || playerIconsRef.current;
-                                if (data.round === 2 || data.round === 3) {
-                                    SoundManager.playWheels();
-                                } else {
-                                    SoundManager.stopWheels();
-                                }
-                            }
-
-                            if (data.type === 'scoreUpdate') {
-                                scoresRef.current = data.scores;
-                                playerIconsRef.current = data.playerIcons || playerIconsRef.current;
-                                SoundManager.playSound('score');
-                                SoundManager.playSound('scoreAdd');
-                            }
-
-                            if (data.type === 'end') {
-                                console.log(`Juego terminado, ganador: ${data.winner}`);
-                                setWinner(data.winner);
-                                setScreen('result');
-                                setGameStarted(false);
-                                setRoom(null);
-                                playersRef.current = [];
-                                scoresRef.current = [0, 0];
-                                roundRef.current = 1;
-                                turnRef.current = 0;
-                                playerIndexRef.current = null;
-                                playerIconsRef.current = ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
-                                SoundManager.stopWheels();
-                                if (data.winner === nameRef.current) {
-                                    SoundManager.playSound('win');
-                                } else if (data.winner !== 'tie' && data.winner !== 'Desconectado') {
-                                    SoundManager.playSound('lose');
-                                }
-                            }
-
-                            if (data.type === 'rankings') {
-                                rankingsRef.current = data.rankings;
-                            }
-
-                            if (data.type === 'full') {
-                                console.log("Sala llena, volviendo a rooms");
-                                alert("La sala está llena. Por favor, elige otra sala.");
-                                setScreen('rooms');
-                            }
-                        } catch (error) {
-                            console.error('Error al procesar mensaje WebSocket:', error);
-                        }
-                    };
-
-                    wsRef.current.onclose = () => {
-                        console.log("Desconectado del servidor WebSocket");
-                        SoundManager.stopBackground();
-                        wsRef.current = null;
-                        wsInitialized.current = false;
-                    };
-                };
-
-                if (!wsInitialized.current) {
-                    initializeWebSocket();
+            const initializeWebSocket = () => {
+                if (wsInitialized.current && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                    console.log("WebSocket ya inicializado y abierto, omitiendo creación");
+                    return;
                 }
 
+                if (wsRef.current) {
+                    wsRef.current.close();
+                    wsRef.current = null;
+                    wsInitialized.current = false;
+                }
+
+                const wsUrl = 'wss://basquetonline.onrender.com';
+                wsRef.current = new WebSocket(wsUrl);
+                wsInitialized.current = true;
+
+                wsRef.current.onopen = () => {
+                    console.log("Conectado al servidor WebSocket");
+                    if (wsRef.current) {
+                        wsRef.current.send(JSON.stringify({ type: 'getRooms' }));
+                        wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
+                    }
+                };
+
+                wsRef.current.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        console.log("Mensaje recibido del WebSocket:", data);
+
+                        if (data.type === 'rooms') {
+                            setRoomStatus(data.rooms);
+                            setRoomStatusKey(prev => prev + 1);
+                            console.log("Estado de salas actualizado:", data.rooms);
+                        }
+
+                        if (data.type === 'joined') {
+                            console.log(`Unido a la sala ${data.room}`);
+                            setRoom(data.room);
+                            playersRef.current = data.players;
+                            playerIndexRef.current = data.playerIndex;
+                            playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
+                            setScreen('gameplay');
+                        }
+
+                        if (data.type === 'start') {
+                            console.log("Juego iniciado");
+                            setGameStarted(true);
+                            playersRef.current = data.players;
+                            scoresRef.current = data.scores;
+                            roundRef.current = data.round;
+                            turnRef.current = data.turn;
+                            playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
+                            SoundManager.playBackground();
+                            SoundManager.stopWheels();
+                        }
+
+                        if (data.type === 'update') {
+                            scoresRef.current = data.scores;
+                            roundRef.current = data.round;
+                            playersRef.current = data.players;
+                            turnRef.current = data.turn;
+                            playerIconsRef.current = data.playerIcons || playerIconsRef.current;
+                            lastBallStateRef.current = { ...data.ball, scores: [...data.scores] };
+                        }
+
+                        if (data.type === 'bounce') {
+                            SoundManager.playSound('bounce');
+                        }
+
+                        if (data.type === 'hoopHit') {
+                            SoundManager.playSound('hoopHit');
+                        }
+
+                        if (data.type === 'newRound') {
+                            roundRef.current = data.round;
+                            scoresRef.current = data.scores;
+                            playersRef.current = data.players;
+                            turnRef.current = data.turn;
+                            playerIconsRef.current = data.playerIcons || playerIconsRef.current;
+                            if (data.round === 2 || data.round === 3) {
+                                SoundManager.playWheels();
+                            } else {
+                                SoundManager.stopWheels();
+                            }
+                        }
+
+                        if (data.type === 'scoreUpdate') {
+                            scoresRef.current = data.scores;
+                            playerIconsRef.current = data.playerIcons || playerIconsRef.current;
+                            SoundManager.playSound('score');
+                            SoundManager.playSound('scoreAdd');
+                        }
+
+                        if (data.type === 'end') {
+                            console.log(`Juego terminado, ganador: ${data.winner}`);
+                            setWinner(data.winner);
+                            setScreen('result');
+                            setGameStarted(false);
+                            setRoom(null);
+                            playersRef.current = [];
+                            scoresRef.current = [0, 0];
+                            roundRef.current = 1;
+                            turnRef.current = 0;
+                            playerIndexRef.current = null;
+                            playerIconsRef.current = ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
+                            SoundManager.stopWheels();
+                            if (data.winner === nameRef.current) {
+                                SoundManager.playSound('win');
+                            } else if (data.winner !== 'tie' && data.winner !== 'Desconectado') {
+                                SoundManager.playSound('lose');
+                            }
+                        }
+
+                        if (data.type === 'rankings') {
+                            rankingsRef.current = data.rankings;
+                        }
+
+                        if (data.type === 'full') {
+                            console.log("Sala llena, volviendo a rooms");
+                            alert("La sala está llena. Por favor, elige otra sala.");
+                            setScreen('rooms');
+                        }
+                    } catch (error) {
+                        console.error('Error al procesar mensaje WebSocket:', error);
+                    }
+                };
+
+                wsRef.current.onclose = () => {
+                    console.log("Desconectado del servidor WebSocket");
+                    SoundManager.stopBackground();
+                    wsRef.current = null;
+                    wsInitialized.current = false;
+                    setTimeout(initializeWebSocket, 1000); // Reabrir después de 1 segundo
+                };
+            };
+
+            useEffect(() => {
+                SoundManager.init();
+                initializeWebSocket();
+
                 return () => {
-                    // Cleanup manejado en handleExit y Result
+                    // No cerrar WebSocket aquí, se maneja en initializeWebSocket
                 };
             }, []);
 
@@ -383,7 +389,7 @@
                 };
 
                 return (
-                    <div className="rooms-container">
+                    <div className="rooms-container" key={roomStatusKey}>
                         {showIconSelection ? (
                             <IconSelection onSelect={handleIconSelected} onBack={handleBack} />
                         ) : (
@@ -684,12 +690,6 @@
                     console.log(`Saliendo de la sala ${room}`);
                     if (wsRef.current) {
                         wsRef.current.send(JSON.stringify({ type: 'leave', room: room }));
-                        setTimeout(() => {
-                            wsRef.current.close();
-                            wsRef.current = null;
-                            wsInitialized.current = false;
-                            console.log("WebSocket cerrado tras salir de la sala");
-                        }, 100);
                     }
                     setRoom(null);
                     setGameStarted(false);
@@ -701,6 +701,7 @@
                     playerIconsRef.current = ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
                     SoundManager.cleanup();
                     setScreen('rooms');
+                    setRoomStatusKey(prev => prev + 1); // Forzar re-render de Rooms
                 };
 
                 return (
@@ -872,14 +873,7 @@
                 };
 
                 useEffect(() => {
-                    if (wsRef.current) {
-                        setTimeout(() => {
-                            wsRef.current.close();
-                            wsRef.current = null;
-                            wsInitialized.current = false;
-                            console.log("WebSocket cerrado tras resultado");
-                        }, 100);
-                    }
+                    setRoomStatusKey(prev => prev + 1); // Forzar re-render de Rooms al volver
                 }, []);
 
                 return (
