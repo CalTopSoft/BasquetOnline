@@ -141,23 +141,26 @@
             const lastBallStateRef = useRef(null);
             const selectedIconRef = useRef('img/iconos/memes/meme1.png');
             const playerIconsRef = useRef(['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png']);
+            const wsInitialized = useRef(false);
 
             useEffect(() => {
                 SoundManager.init();
 
                 const initializeWebSocket = () => {
-                    if (wsRef.current) {
-                        wsRef.current.close();
-                        wsRef.current = null;
+                    if (wsInitialized.current && wsRef.current) {
+                        return; // Evitar crear múltiples WebSockets
                     }
 
                     const wsUrl = 'wss://basquetonline.onrender.com';
                     wsRef.current = new WebSocket(wsUrl);
+                    wsInitialized.current = true;
 
                     wsRef.current.onopen = () => {
                         console.log("Conectado al servidor WebSocket");
-                        wsRef.current.send(JSON.stringify({ type: 'getRooms' }));
-                        wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
+                        if (wsRef.current) {
+                            wsRef.current.send(JSON.stringify({ type: 'getRooms' }));
+                            wsRef.current.send(JSON.stringify({ type: 'getRankings' }));
+                        }
                     };
 
                     wsRef.current.onmessage = (event) => {
@@ -261,19 +264,16 @@
                         console.log("Desconectado del servidor WebSocket");
                         SoundManager.stopBackground();
                         wsRef.current = null;
+                        wsInitialized.current = false;
                     };
                 };
 
-                if (screen === 'home' || screen === 'rooms' || screen === 'rankings' || screen === 'credits') {
+                if (!wsInitialized.current && (screen === 'home' || screen === 'rooms' || screen === 'rankings' || screen === 'credits' || screen === 'gameplay')) {
                     initializeWebSocket();
                 }
 
                 return () => {
-                    if (wsRef.current) {
-                        wsRef.current.close();
-                        wsRef.current = null;
-                    }
-                    SoundManager.cleanup();
+                    // Solo cerrar el WebSocket si es necesario (manejado en handleExit y result)
                 };
             }, [screen]);
 
@@ -675,8 +675,11 @@
                 const handleExit = () => {
                     if (wsRef.current) {
                         wsRef.current.send(JSON.stringify({ type: 'leave', room: room }));
-                        wsRef.current.close();
-                        wsRef.current = null;
+                        setTimeout(() => {
+                            wsRef.current.close();
+                            wsRef.current = null;
+                            wsInitialized.current = false;
+                        }, 100); // Retardo para permitir que el mensaje 'leave' se envíe
                     }
                     setRoom(null);
                     setGameStarted(false);
@@ -857,6 +860,16 @@
                     if (winner === nameRef.current) return '¡Ganaste!';
                     return 'Perdiste';
                 };
+
+                useEffect(() => {
+                    if (wsRef.current) {
+                        setTimeout(() => {
+                            wsRef.current.close();
+                            wsRef.current = null;
+                            wsInitialized.current = false;
+                        }, 100);
+                    }
+                }, []);
 
                 return (
                     <div className="container">
