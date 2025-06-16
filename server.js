@@ -23,7 +23,8 @@ const rooms = {
         gameStarted: false,
         gameEnded: false,
         shotInProgress: false,
-        lastBounceTime: 0
+        lastBounceTime: 0,
+        playerIcons: ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'] // Nuevo campo para iconos
     },
     room2: { 
         players: [], 
@@ -42,7 +43,8 @@ const rooms = {
         gameStarted: false,
         gameEnded: false,
         shotInProgress: false,
-        lastBounceTime: 0
+        lastBounceTime: 0,
+        playerIcons: ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'] // Nuevo campo para iconos
     }
 };
 let rankings = [];
@@ -208,7 +210,8 @@ const updateGameState = () => {
                     hoopX: room.hoopX,
                     round: room.round,
                     attempts: room.attempts,
-                    players: room.players.map(player => player.name)
+                    players: room.players.map(player => player.name),
+                    playerIcons: room.playerIcons // Enviar iconos
                 }));
             }
         });
@@ -289,7 +292,8 @@ const passTurn = async (room, roomName) => {
                     hoopX: room.hoopX,
                     round: room.round,
                     attempts: room.attempts,
-                    players: room.players.map(player => player.name)
+                    players: room.players.map(player => player.name),
+                    playerIcons: room.playerIcons
                 }));
             }
         });
@@ -342,7 +346,8 @@ const passTurn = async (room, roomName) => {
                     hoopX: room.hoopX,
                     round: room.round,
                     attempts: room.attempts,
-                    players: room.players.map(player => player.name)
+                    players: room.players.map(player => player.name),
+                    playerIcons: room.playerIcons
                 }));
             }
         });
@@ -357,11 +362,11 @@ const endGame = async (room, roomName) => {
     room.players.forEach(p => {
         if (p.ws.readyState === WebSocket.OPEN) {
             if (winner === -1) {
-                p.ws.send(JSON.stringify({ type: 'end', winner: 'tie' }));
+                p.ws.send(JSON.stringify({ type: 'end', winner: 'tie', playerIcons: room.playerIcons }));
             } else if (room.players[winner]) {
-                p.ws.send(JSON.stringify({ type: 'end', winner: room.players[winner].name }));
+                p.ws.send(JSON.stringify({ type: 'end', winner: room.players[winner].name, playerIcons: room.playerIcons }));
             } else {
-                p.ws.send(JSON.stringify({ type: 'end', winner: 'Desconectado' }));
+                p.ws.send(JSON.stringify({ type: 'end', winner: 'Desconectado', playerIcons: room.playerIcons }));
             }
         }
     });
@@ -406,13 +411,15 @@ wss.on('connection', (ws) => {
             const room = rooms[data.room];
             if (room.players.length < 2) {
                 const playerIndex = room.players.length;
-                room.players.push({ ws, name: data.name, index: playerIndex });
+                room.players.push({ ws, name: data.name, index: playerIndex, icon: data.icon });
+                room.playerIcons[playerIndex] = data.icon || 'img/iconos/memes/meme1.png';
                 
                 ws.send(JSON.stringify({ 
                     type: 'joined', 
                     room: data.room, 
                     players: room.players.map(p => p.name),
-                    playerIndex: playerIndex
+                    playerIndex: playerIndex,
+                    playerIcons: room.playerIcons
                 }));
                 
                 if (room.players.length === 2) {
@@ -439,7 +446,8 @@ wss.on('connection', (ws) => {
                                 scores: room.scores, 
                                 round: room.round, 
                                 attempts: room.attempts,
-                                players: room.players.map(player => player.name)
+                                players: room.players.map(player => player.name),
+                                playerIcons: room.playerIcons
                             }));
                         }
                     });
@@ -499,11 +507,12 @@ wss.on('connection', (ws) => {
             const index = room.players.findIndex(p => p.ws === ws);
             if (index !== -1) {
                 room.players.splice(index, 1);
+                room.playerIcons[index] = 'img/iconos/memes/meme1.png'; // Resetear icono
                 
                 if (room.gameStarted && room.players.length < 2) {
                     room.players.forEach(p => {
                         if (p.ws.readyState === WebSocket.OPEN) {
-                            p.ws.send(JSON.stringify({ type: 'end', winner: 'Desconectado' }));
+                            p.ws.send(JSON.stringify({ type: 'end', winner: 'Desconectado', playerIcons: room.playerIcons }));
                         }
                     });
                     resetRoom(room);
@@ -534,7 +543,7 @@ const resetRoom = (room) => {
     room.turn = 0;
     room.afk = [0, 0];
     room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
-    room.timer = 8;
+    room.timer = 0;
     room.lastTimerUpdate = Date.now();
     room.hoopX = 300;
     room.hoopDirection = 1;
@@ -543,6 +552,7 @@ const resetRoom = (room) => {
     room.gameEnded = false;
     room.shotInProgress = false;
     room.lastBounceTime = 0;
+    room.playerIcons = ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png']; // Resetear iconos
 };
 
 setInterval(updateGameState, 16);
