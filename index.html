@@ -135,7 +135,7 @@
             const turnRef = useRef(0);
             const countdownRef = useRef(0);
             const rankingsRef = useRef([]);
-            const roomStatusRef = useRef({ room1: { players: 0 }, room2: { players: 0 } });
+            const [roomStatus, setRoomStatus] = useState({ room1: { players: 0 }, room2: { players: 0 } });
             const playerIndexRef = useRef(null);
             const wsRef = useRef(null);
             const lastBallStateRef = useRef(null);
@@ -148,7 +148,8 @@
 
                 const initializeWebSocket = () => {
                     if (wsInitialized.current && wsRef.current) {
-                        return; // Evitar crear múltiples WebSockets
+                        console.log("WebSocket ya inicializado, omitiendo creación");
+                        return;
                     }
 
                     const wsUrl = 'wss://basquetonline.onrender.com';
@@ -166,13 +167,15 @@
                     wsRef.current.onmessage = (event) => {
                         try {
                             const data = JSON.parse(event.data);
+                            console.log("Mensaje recibido del WebSocket:", data);
 
                             if (data.type === 'rooms') {
-                                roomStatusRef.current = data.rooms;
-                                setScreen(prev => prev); // Forzar renderizado
+                                setRoomStatus(data.rooms);
+                                console.log("Estado de salas actualizado:", data.rooms);
                             }
 
                             if (data.type === 'joined') {
+                                console.log(`Unido a la sala ${data.room}`);
                                 setRoom(data.room);
                                 playersRef.current = data.players;
                                 playerIndexRef.current = data.playerIndex;
@@ -181,6 +184,7 @@
                             }
 
                             if (data.type === 'start') {
+                                console.log("Juego iniciado");
                                 setGameStarted(true);
                                 playersRef.current = data.players;
                                 scoresRef.current = data.scores;
@@ -229,6 +233,7 @@
                             }
 
                             if (data.type === 'end') {
+                                console.log(`Juego terminado, ganador: ${data.winner}`);
                                 setWinner(data.winner);
                                 setScreen('result');
                                 setGameStarted(false);
@@ -252,6 +257,7 @@
                             }
 
                             if (data.type === 'full') {
+                                console.log("Sala llena, volviendo a rooms");
                                 alert("La sala está llena. Por favor, elige otra sala.");
                                 setScreen('rooms');
                             }
@@ -268,14 +274,14 @@
                     };
                 };
 
-                if (!wsInitialized.current && (screen === 'home' || screen === 'rooms' || screen === 'rankings' || screen === 'credits' || screen === 'gameplay')) {
+                if (!wsInitialized.current) {
                     initializeWebSocket();
                 }
 
                 return () => {
-                    // Solo cerrar el WebSocket si es necesario (manejado en handleExit y result)
+                    // Cleanup manejado en handleExit y Result
                 };
-            }, [screen]);
+            }, []);
 
             const Home = ({ setScreen, nameRef }) => {
                 const [localName, setLocalName] = useState(nameRef.current);
@@ -352,11 +358,13 @@
                 const [selectedRoom, setSelectedRoom] = useState(null);
 
                 const handleJoinRoom = (roomName) => {
+                    console.log(`Intentando unirse a ${roomName}`);
                     setSelectedRoom(roomName);
                     setShowIconSelection(true);
                 };
 
                 const handleIconSelected = (icon) => {
+                    console.log(`Icono seleccionado: ${icon}, uniendo a ${selectedRoom}`);
                     selectedIconRef.current = icon;
                     if (wsRef.current && selectedRoom) {
                         wsRef.current.send(JSON.stringify({
@@ -410,15 +418,15 @@
                                         <div className="room-header">
                                             <span className="room-name">Cancha 1</span>
                                             <span className="room-status">
-                                                ({roomStatusRef.current.room1.players}/2)
+                                                ({roomStatus.room1.players}/2)
                                             </span>
                                         </div>
                                         <div className="room-content">
                                             <p className="room-info">¡Dribla, encesta y triunfa!</p>
                                             <button 
-                                                className={`room-button ${roomStatusRef.current.room1.players >= 2 ? 'disabled' : ''}`}
+                                                className={`room-button ${roomStatus.room1.players >= 2 ? 'disabled' : ''}`}
                                                 onClick={() => handleJoinRoom('room1')} 
-                                                disabled={roomStatusRef.current.room1.players >= 2}
+                                                disabled={roomStatus.room1.players >= 2}
                                             >
                                                 Jugar
                                             </button>
@@ -428,15 +436,15 @@
                                         <div className="room-header">
                                             <span className="room-name">Cancha 2</span>
                                             <span className="room-status">
-                                                ({roomStatusRef.current.room2.players}/2)
+                                                ({roomStatus.room2.players}/2)
                                             </span>
                                         </div>
                                         <div className="room-content">
                                             <p className="room-info">¡Anota el punto ganador!</p>
                                             <button 
-                                                className={`room-button ${roomStatusRef.current.room2.players >= 2 ? 'disabled' : ''}`}
+                                                className={`room-button ${roomStatus.room2.players >= 2 ? 'disabled' : ''}`}
                                                 onClick={() => handleJoinRoom('room2')} 
-                                                disabled={roomStatusRef.current.room2.players >= 2}
+                                                disabled={roomStatus.room2.players >= 2}
                                             >
                                                 Jugar
                                             </button>
@@ -673,13 +681,15 @@
                 }, []);
 
                 const handleExit = () => {
+                    console.log(`Saliendo de la sala ${room}`);
                     if (wsRef.current) {
                         wsRef.current.send(JSON.stringify({ type: 'leave', room: room }));
                         setTimeout(() => {
                             wsRef.current.close();
                             wsRef.current = null;
                             wsInitialized.current = false;
-                        }, 100); // Retardo para permitir que el mensaje 'leave' se envíe
+                            console.log("WebSocket cerrado tras salir de la sala");
+                        }, 100);
                     }
                     setRoom(null);
                     setGameStarted(false);
@@ -867,6 +877,7 @@
                             wsRef.current.close();
                             wsRef.current = null;
                             wsInitialized.current = false;
+                            console.log("WebSocket cerrado tras resultado");
                         }, 100);
                     }
                 }, []);
