@@ -384,7 +384,6 @@ input {
 }
 
 
-
 .countdown {
     position: absolute;
     top: 50%;
@@ -401,7 +400,7 @@ input {
     height: 52px;
     border-radius: 50%;
     border: 4px solid #000;
-    background-color: #fff;
+    background-color: #348889;
     box-shadow: 
         0 0 0 3px #ffcc00,   /* Resaltado amarillo como el nombre */
         0 4px 0 #000;        /* Sombra estilo cartoon */
@@ -549,4 +548,3 @@ input {
     }
     
 }
-
