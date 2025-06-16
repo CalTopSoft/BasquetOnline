@@ -626,7 +626,7 @@ body::-webkit-scrollbar {
     }
     
     .icon-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
     }
     
     .icon-card {
@@ -639,7 +639,7 @@ body::-webkit-scrollbar {
     }
     
     .back-button {
-        padding: 10px 20px;
+        padding: 20px 20px;
         font-size: 1rem;
         display: flex;
         align-items: center;
