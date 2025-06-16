@@ -276,7 +276,7 @@
                     SoundManager.stopBackground();
                     wsRef.current = null;
                     wsInitialized.current = false;
-                    setTimeout(initializeWebSocket, 1000); // Reabrir después de 1 segundo
+                    setTimeout(initializeWebSocket, 1000);
                 };
             };
 
@@ -285,7 +285,7 @@
                 initializeWebSocket();
 
                 return () => {
-                    // No cerrar WebSocket aquí, se maneja en initializeWebSocket
+                    // No cerrar WebSocket aquí
                 };
             }, []);
 
@@ -362,6 +362,8 @@
             const Rooms = ({ setScreen }) => {
                 const [showIconSelection, setShowIconSelection] = useState(false);
                 const [selectedRoom, setSelectedRoom] = useState(null);
+
+                console.log("Renderizando Rooms");
 
                 const handleJoinRoom = (roomName) => {
                     console.log(`Intentando unirse a ${roomName}`);
@@ -701,7 +703,7 @@
                     playerIconsRef.current = ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
                     SoundManager.cleanup();
                     setScreen('rooms');
-                    setRoomStatusKey(prev => prev + 1); // Forzar re-render de Rooms
+                    setRoomStatusKey(prev => prev + 1);
                 };
 
                 return (
@@ -864,7 +866,7 @@
                 );
             };
 
-            const Result = ({ winner, nameRef, setScreen }) => {
+            const Result = ({ winner, nameRef, setScreen, setRoomStatusKey }) => {
                 const getResultMessage = () => {
                     if (winner === 'tie') return '¡Empate!';
                     if (winner === 'Desconectado') return 'Partida cancelada - Jugador desconectado';
@@ -872,14 +874,15 @@
                     return 'Perdiste';
                 };
 
-                useEffect(() => {
-                    setRoomStatusKey(prev => prev + 1); // Forzar re-render de Rooms al volver
-                }, []);
+                const handleBack = () => {
+                    setRoomStatusKey(prev => prev + 1); // Forzar re-render de Rooms
+                    setScreen('rooms');
+                };
 
                 return (
                     <div className="container">
                         <h1>{getResultMessage()}</h1>
-                        <button onClick={() => setScreen('rooms')}>Volver</button>
+                        <button onClick={handleBack}>Volver</button>
                     </div>
                 );
             };
@@ -891,7 +894,7 @@
                     {screen === 'gameplay' && <Gameplay name={nameRef.current} setScreen={setScreen} />}
                     {screen === 'rankings' && <Rankings setScreen={setScreen} />}
                     {screen === 'credits' && <Credits setScreen={setScreen} />}
-                    {screen === 'result' && <Result winner={winner} nameRef={nameRef} setScreen={setScreen} />}
+                    {screen === 'result' && <Result winner={winner} nameRef={nameRef} setScreen={setScreen} setRoomStatusKey={setRoomStatusKey} />}
                 </div>
             );
         };
