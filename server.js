@@ -329,7 +329,7 @@ const passTurn = async (room, roomName) => {
     } else {
         room.turn = otherPlayer;
         room.timer = 8;
-        room.lastTimerUpdate = Date.now;
+        room.lastTimerUpdate = Date.now();
         
         room.players.forEach(p => {
             if (p.ws.readyState === WebSocket.OPEN) {
