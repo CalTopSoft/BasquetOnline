@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -13,6 +14,7 @@
     <link rel="stylesheet" href="public/styles/credits.css">
     <link rel="stylesheet" href="public/styles/rankings.css">
     <link rel="stylesheet" href="public/styles/rooms.css">
+    <link rel="stylesheet" href="public/styles/icon-selection.css">
     <link rel="icon" href="img/iconoweb/favicon.ico" type="image/x-icon">
 
 </head>
@@ -140,6 +142,8 @@
             const playerIndexRef = useRef(null);
             const wsRef = useRef(null);
             const lastBallStateRef = useRef(null);
+            const selectedIconRef = useRef('img/iconos/memes/meme1.png'); // Icono por defecto
+            const playerIconsRef = useRef(['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png']); // Iconos de ambos jugadores
 
             useEffect(() => {
                 SoundManager.init();
@@ -164,6 +168,7 @@
                         setRoom(data.room);
                         playersRef.current = data.players;
                         playerIndexRef.current = data.playerIndex;
+                        playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
                         setScreen('gameplay');
                     }
 
@@ -173,6 +178,7 @@
                         scoresRef.current = data.scores;
                         roundRef.current = data.round;
                         turnRef.current = data.turn;
+                        playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
                         SoundManager.playBackground();
                         SoundManager.stopWheels();
                     }
@@ -182,6 +188,7 @@
                         roundRef.current = data.round;
                         playersRef.current = data.players;
                         turnRef.current = data.turn;
+                        playerIconsRef.current = data.playerIcons || playerIconsRef.current;
                         
                         if (lastBallStateRef.current && data.ball) {
                             // Eliminamos la lógica de score aquí
@@ -202,15 +209,17 @@
                         scoresRef.current = data.scores;
                         playersRef.current = data.players;
                         turnRef.current = data.turn;
+                        playerIconsRef.current = data.playerIcons || playerIconsRef.current;
                         if (data.round === 2 || data.round === 3) {
                             SoundManager.playWheels();
                         } else {
                             SoundManager.stopWheels();
                         }
                     }
-                    
+                        
                     if (data.type === 'scoreUpdate') {
                         scoresRef.current = data.scores;
+                        playerIconsRef.current = data.playerIcons || playerIconsRef.current;
                         SoundManager.playSound('score');
                         SoundManager.playSound('scoreAdd');
                     }
@@ -324,79 +333,169 @@
             };
 
             const Rooms = ({ setScreen }) => {
-                const joinRoom = (roomName) => {
-                    if (wsRef.current) {
-                        wsRef.current.send(JSON.stringify({ type: 'join', room: roomName, name: nameRef.current }));
+                const [showIconSelection, setShowIconSelection] = useState(false);
+                const [selectedRoom, setSelectedRoom] = useState(null);
+
+                const handleJoinRoom = (roomName) => {
+                    setSelectedRoom(roomName);
+                    setShowIconSelection(true);
+                };
+
+                const handleIconSelected = (icon) => {
+                    selectedIconRef.current = icon;
+                    if (wsRef.current && selectedRoom) {
+                        wsRef.current.send(JSON.stringify({
+                            type: 'join',
+                            room: selectedRoom,
+                            name: nameRef.current,
+                            icon: icon
+                        }));
                     }
+                    setShowIconSelection(false);
+                };
+
+                const handleBack = () => {
+                    setShowIconSelection(false);
+                    setSelectedRoom(null);
                 };
 
                 return (
                     <div className="rooms-container">
-                        <h1 className="rooms-title">Salas de Baloncesto</h1>
-                        <div className="court-lines">
-                            <div className="court-line court-line-1"></div>
-                            <div className="court-line court-line-2"></div>
-                            <div className="court-line court-line-3"></div>
-                        </div>
-                        <div className="basketball-animation">
-                            <div className="basketball-ball ball-1"></div>
-                            <div className="basketball-ball ball-2"></div>
-                            <div className="basketball-ball ball-3"></div>
-                        </div>
-                        <div className="hoop-animation hoop-left">
-                            <div className="hoop-ring"></div>
-                            <div className="hoop-net"></div>
-                        </div>
-                        <div className="hoop-animation hoop-right">
-                            <div className="hoop-ring"></div>
-                            <div className="hoop-net"></div>
-                        </div>
-                        <div className="crowd-animation">
-                            <div className="crowd-person crowd-person-1"></div>
-                            <div className="crowd-person crowd-person-2"></div>
-                            <div className="crowd-person crowd-person-3"></div>
-                            <div className="crowd-person crowd-person-4"></div>
-                        </div>
-                        <div className="rooms-list">
-                            <div className="room-card" id="room1-card">
-                                <div className="room-header">
-                                    <span className="room-name">Cancha 1</span>
-                                    <span className="room-status">
-                                        ({roomStatusRef.current.room1.players}/2)
-                                    </span>
+                        {showIconSelection ? (
+                            <IconSelection onSelect={handleIconSelected} onBack={handleBack} />
+                        ) : (
+                            <>
+                                <h1 className="rooms-title">Salas de Baloncesto</h1>
+                                <div className="court-lines">
+                                    <div className="court-line court-line-1"></div>
+                                    <div className="court-line court-line-2"></div>
+                                    <div className="court-line court-line-3"></div>
                                 </div>
-                                <div className="room-content">
-                                    <p className="room-info">¡Dribla, encesta y triunfa!</p>
-                                    <button 
-                                        className={`room-button ${roomStatusRef.current.room1.players >= 2 ? 'disabled' : ''}`}
-                                        onClick={() => joinRoom('room1')} 
-                                        disabled={roomStatusRef.current.room1.players >= 2}
-                                    >
-                                        Jugar
-                                    </button>
+                                <div className="basketball-animation">
+                                    <div className="basketball-ball ball-1"></div>
+                                    <div className="basketball-ball ball-2"></div>
+                                    <div className="basketball-ball ball-3"></div>
                                 </div>
-                            </div>
-                            <div className="room-card" id="room2-card">
-                                <div className="room-header">
-                                    <span className="room-name">Cancha 2</span>
-                                    <span className="room-status">
-                                        ({roomStatusRef.current.room2.players}/2)
-                                    </span>
+                                <div className="hoop-animation hoop-left">
+                                    <div className="hoop-ring"></div>
+                                    <div className="hoop-net"></div>
                                 </div>
-                                <div className="room-content">
-                                    <p className="room-info">¡Anota el punto ganador!</p>
-                                    <button 
-                                        className={`room-button ${roomStatusRef.current.room2.players >= 2 ? 'disabled' : ''}`}
-                                        onClick={() => joinRoom('room2')} 
-                                        disabled={roomStatusRef.current.room2.players >= 2}
-                                    >
-                                        Jugar
-                                    </button>
+                                <div className="hoop-animation hoop-right">
+                                    <div className="hoop-ring"></div>
+                                    <div className="hoop-net"></div>
                                 </div>
-                            </div>
+                                <div className="crowd-animation">
+                                    <div className="crowd-person crowd-person-1"></div>
+                                    <div className="crowd-person crowd-person-2"></div>
+                                    <div className="crowd-person crowd-person-3"></div>
+                                    <div className="crowd-person crowd-person-4"></div>
+                                </div>
+                                <div className="rooms-list">
+                                    <div className="room-card" id="room1-card">
+                                        <div className="room-header">
+                                            <span className="room-name">Cancha 1</span>
+                                            <span className="room-status">
+                                                ({roomStatusRef.current.room1.players}/2)
+                                            </span>
+                                        </div>
+                                        <div className="room-content">
+                                            <p className="room-info">¡Dribla, encesta y triunfa!</p>
+                                            <button 
+                                                className={`room-button ${roomStatusRef.current.room1.players >= 2 ? 'disabled' : ''}`}
+                                                onClick={() => handleJoinRoom('room1')} 
+                                                disabled={roomStatusRef.current.room1.players >= 2}
+                                            >
+                                                Jugar
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="room-card" id="room2-card">
+                                        <div className="room-header">
+                                            <span className="room-name">Cancha 2</span>
+                                            <span className="room-status">
+                                                ({roomStatusRef.current.room2.players}/2)
+                                            </span>
+                                        </div>
+                                        <div className="room-content">
+                                            <p className="room-info">¡Anota el punto ganador!</p>
+                                            <button 
+                                                className={`room-button ${roomStatusRef.current.room2.players >= 2 ? 'disabled' : ''}`}
+                                                onClick={() => handleJoinRoom('room2')} 
+                                                disabled={roomStatusRef.current.room2.players >= 2}
+                                            >
+                                                Jugar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button className="back-button" onClick={() => setScreen('home')}>
+                                    Volver a la Cancha Principal
+                                </button>
+                            </>
+                        )}
+                    </div>
+                );
+            };
+            const IconSelection = ({ onSelect, onBack }) => {
+                const [category, setCategory] = useState('Memes');
+
+                const memeIcons = [
+                    { path: 'img/iconos/memes/meme1.png', name: 'Meme 1' },
+                    { path: 'img/iconos/memes/meme2.png', name: 'Meme 2' },
+                    { path: 'img/iconos/memes/meme3.png', name: 'Meme 3' },
+                    { path: 'img/iconos/memes/meme4.png', name: 'Meme 4' },
+                    { path: 'img/iconos/memes/meme5.png', name: 'Meme 5' },
+                    { path: 'img/iconos/memes/meme6.png', name: 'Meme 6' },
+                    { path: 'img/iconos/memes/meme7.png', name: 'Meme 7' },
+                    { path: 'img/iconos/memes/meme8.png', name: 'Meme 8' },
+                ];
+
+                const catIcons = [
+                    { path: 'img/iconos/gatos/cat1.png', name: 'Gato 1' },
+                    { path: 'img/iconos/gatos/cat2.png', name: 'Gato 2' },
+                    { path: 'img/iconos/gatos/cat3.png', name: 'Gato 3' },
+                    { path: 'img/iconos/gatos/cat4.png', name: 'Gato 4' },
+                    { path: 'img/iconos/gatos/cat5.png', name: 'Gato 5' },
+                    { path: 'img/iconos/gatos/cat6.png', name: 'Gato 6' },
+                    { path: 'img/iconos/gatos/cat7.png', name: 'Gato 7' },
+                    { path: 'img/iconos/gatos/cat8.png', name: 'Gato 8' },
+                    { path: 'img/iconos/gatos/cat9.png', name: 'Gato 9' },
+                    { path: 'img/iconos/gatos/cat10.png', name: 'Gato 10' },
+                    { path: 'img/iconos/gatos/cat11.png', name: 'Gato 11' },
+                    { path: 'img/iconos/gatos/cat12.png', name: 'Gato 12' },
+                    { path: 'img/iconos/gatos/cat13.png', name: 'Gato 13' },
+                    { path: 'img/iconos/gatos/cat14.png', name: 'Gato 14' },
+                ];
+
+                const icons = category === 'Memes' ? memeIcons : catIcons;
+
+                return (
+                    <div className="icon-selection-container">
+                        <h1 className="icon-selection-title">Elige tu Icono</h1>
+                        <div className="category-tabs">
+                            <button
+                                className={`category-tab ${category === 'Memes' ? 'active' : ''}`}
+                                onClick={() => setCategory('Memes')}
+                            >
+                                Memes
+                            </button>
+                            <button
+                                className={`category-tab ${category === 'Gatos' ? 'active' : ''}`}
+                                onClick={() => setCategory('Gatos')}
+                            >
+                                Gatos
+                            </button>
                         </div>
-                        <button className="back-button" onClick={() => setScreen('home')}>
-                            Volver a la Cancha Principal
+                        <div className="icon-grid">
+                            {icons.map((icon, index) => (
+                                <div key={index} className="icon-card" onClick={() => onSelect(icon.path)}>
+                                    <img src={icon.path} alt={icon.name} className="icon-image" />
+                                    <span className="icon-name">{icon.name}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <button className="back-button" onClick={onBack}>
+                            Regresar
                         </button>
                     </div>
                 );
@@ -542,6 +641,7 @@
                             hoopXRef.current = data.hoopX;
                             timerRef.current = data.timer;
                             attemptsRef.current = data.attempts;
+                            playerIconsRef.current = data.playerIcons || playerIconsRef.current;
                             setForceUpdate(prev => prev + 1);
                         }
                     };
@@ -549,7 +649,7 @@
                     if (wsRef.current) {
                         wsRef.current.addEventListener('message', handleMessage);
                     }
-            
+                    
                     return () => {
                         if (wsRef.current) {
                             wsRef.current.removeEventListener('message', handleMessage);
@@ -570,13 +670,13 @@
                             <div className="round">Ronda {roundRef.current}/3</div>
                             {playersRef.current[0] && (
                                 <>
-                                    <img src="img/iconosplayer/player1.png" alt="Player 1" className="player-icon player1" />
+                                    <img src={playerIconsRef.current[0]} alt="Player 1" className="player-icon player1" />
                                     <div className="player-name player1-name">{playersRef.current[0]}</div>
                                 </>
                             )}
                             {playersRef.current[1] && (
                                 <>
-                                    <img src="img/iconosplayer/player2.png" alt="Player 2" className="player-icon player2" />
+                                    <img src={playerIconsRef.current[1]} alt="Player 2" className="player-icon player2" />
                                     <div className="player-name player2-name">{playersRef.current[1]}</div>
                                 </>
                             )}
@@ -598,7 +698,7 @@
                 );
             };
 
-            const Rankings = ({ setScreen }) => {   
+            const Rankings = ({ setScreen }) => {
                 return (
                     <div className="rankings-container">
                         <div className="court-lines">
@@ -742,7 +842,7 @@
                     {screen === 'home' && <Home setScreen={setScreen} nameRef={nameRef} />}
                     {screen === 'rooms' && <Rooms setScreen={setScreen} />}
                     {screen === 'gameplay' && (
-                        <Gameplay name={name} />
+                        <Gameplay name={nameRef.current} />
                     )}
                     {screen === 'rankings' && <Rankings setScreen={setScreen} />}
                     {screen === 'credits' && <Credits setScreen={setScreen} />}
