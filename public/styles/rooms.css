@@ -1,0 +1,470 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+.rooms-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    width: 100vw;
+    background: url('img/court-background.jpg') no-repeat center center;
+    background-size: cover;
+    position: relative;
+    font-family: 'Impact', Arial, sans-serif;
+    color: #ffffff;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.rooms-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(20, 30, 60, 0.7);
+    z-index: 1;
+}
+
+.rooms-title {
+    font-size: 3.5rem;
+    font-weight: bold;
+    color: #00e676;
+    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8), 0 0 15px #ffea00;
+    margin-bottom: 40px;
+    z-index: 2;
+    animation: slam 1.5s infinite;
+}
+
+.rooms-list {
+    display: flex;
+    gap: 30px;
+    justify-content: center;
+    flex-wrap: wrap;
+    z-index: 2;
+}
+
+.room-card {
+    background: rgba(30, 40, 80, 0.85);
+    border-radius: 15px;
+    padding: 20px;
+    width: 350px;
+    max-width: 90%;
+    border: 3px solid #ffea00;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.6);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.room-card:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 25px rgba(0, 230, 118, 0.5);
+}
+
+.room-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: url('img/basketball-texture.png') repeat;
+    opacity: 0.2;
+    animation: dribble 8s linear infinite;
+}
+
+.room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    z-index: 2;
+    position: relative;
+}
+
+.room-name {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #ffea00;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+.room-status {
+    font-size: 1.3rem;
+    color: #ffffff;
+    background: rgba(0, 230, 118, 0.8);
+    padding: 5px 12px;
+    border-radius: 12px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+}
+
+.room-content {
+    text-align: center;
+    z-index: 2;
+    position: relative;
+}
+
+.room-info {
+    font-size: 1.1rem;
+    color: #d0d0d0;
+    margin-bottom: 15px;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.room-button {
+    background: linear-gradient(45deg, #00e676, #4caf50);
+    color: #ffffff;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 10px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+}
+
+.room-button:hover {
+    background: linear-gradient(45deg, #4caf50, #8bc34a);
+    transform: scale(1.1);
+    box-shadow: 0 5px 15px rgba(0, 230, 118, 0.7);
+}
+
+.room-button.disabled {
+    background: #4a4a4a;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.back-button {
+    margin-top: 40px;
+    background: linear-gradient(45deg, #0288d1, #29b6f6);
+    color: #ffffff;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 10px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    z-index: 2;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+}
+
+.back-button:hover {
+    background: linear-gradient(45deg, #29b6f6, #4fc3f7);
+    transform: scale(1.1);
+    box-shadow: 0 5px 15px rgba(2, 136, 209, 0.7);
+}
+
+.court-lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.court-line {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.3);
+    animation: pulse-line 3s infinite ease-in-out;
+}
+
+.court-line-1 {
+    width: 100%;
+    height: 2px;
+    top: 20%;
+}
+
+.court-line-2 {
+    width: 100%;
+    height: 2px;
+    top: 50%;
+}
+
+.court-line-3 {
+    width: 2px;
+    height: 100%;
+    left: 50%;
+}
+
+.basketball-animation {
+    position: absolute;
+    top: 5%;
+    left: 5%;
+    width: 90%;
+    height: 90%;
+    z-index: 1;
+}
+
+.basketball-ball {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle at 30%, #ff5722, #bf360c);
+    border-radius: 50%;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+}
+
+.ball-1 {
+    top: 10%;
+    left: 15%;
+    animation: bounce-shot 2.5s infinite ease-in-out;
+}
+
+.ball-2 {
+    top: 30%;
+    left: 70%;
+    animation: bounce-shot 3s infinite ease-in-out 0.5s;
+}
+
+.ball-3 {
+    top: 60%;
+    left: 30%;
+    animation: bounce-shot 2.8s infinite ease-in-out 1s;
+}
+
+.hoop-animation {
+    position: absolute;
+    width: 120px;
+    height: 70px;
+    z-index: 1;
+}
+
+.hoop-left {
+    top: 10%;
+    left: 5%;
+}
+
+.hoop-right {
+    top: 10%;
+    right: 5%;
+}
+
+.hoop-ring {
+    position: absolute;
+    width: 120px;
+    height: 12px;
+    background: #ffea00;
+    border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    animation: hoop-sway 2.5s infinite ease-in-out;
+}
+
+.hoop-net {
+    position: absolute;
+    top: 12px;
+    left: 10%;
+    width: 80%;
+    height: 58px;
+    background: repeating-linear-gradient(
+        45deg,
+        #ffffff,
+        #ffffff 5px,
+        transparent 5px,
+        transparent 10px
+    );
+    clip-path: polygon(0 0, 100% 0, 80% 100%, 20% 100%);
+    animation: net-swing 2.5s infinite ease-in-out;
+}
+
+.crowd-animation {
+    position: absolute;
+    bottom: 5%;
+    left: 0;
+    width: 100%;
+    height: 15%;
+    z-index: 1;
+}
+
+.crowd-person {
+    position: absolute;
+    width: 30px;
+    height: 50px;
+    background: linear-gradient(#0288d1, #0277bd);
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    animation: cheer 1.5s infinite ease-in-out;
+}
+
+.crowd-person-1 {
+    left: 10%;
+    animation-delay: 0s;
+}
+
+.crowd-person-2 {
+    left: 30%;
+    animation-delay: 0.3s;
+}
+
+.crowd-person-3 {
+    left: 60%;
+    animation-delay: 0.6s;
+}
+
+.crowd-person-4 {
+    left: 80%;
+    animation-delay: 0.9s;
+}
+
+@keyframes slam {
+    0%, 100% {
+        transform: translateY(0) scale(1);
+        text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8), 0 0 15px #ffea00;
+    }
+    50% {
+        transform: translateY(-15px) scale(1.05);
+        text-shadow: 3px 3px 8px rgba(0, 0, 0, 0.9), 0 0 20px #ffea00;
+    }
+}
+
+@keyframes dribble {
+    0% {
+        transform: translateY(0) rotate(0deg);
+    }
+    50% {
+        transform: translateY(15px) rotate(180deg);
+    }
+    100% {
+        transform: translateY(0) rotate(360deg);
+    }
+}
+
+@keyframes bounce-shot {
+    0%, 100% {
+        transform: translateY(0) rotate(0deg);
+    }
+    40% {
+        transform: translateY(250px) translateX(50px) rotate(180deg);
+    }
+    60% {
+        transform: translateY(200px) translateX(60px) rotate(270deg);
+    }
+}
+
+@keyframes hoop-sway {
+    0%, 100% {
+        transform: translateX(0) rotate(0deg);
+    }
+    50% {
+        transform: translateX(15px) rotate(2deg);
+    }
+}
+
+@keyframes net-swing {
+    0%, 100% {
+        transform: skewX(0deg) scaleY(1);
+    }
+    50% {
+        transform: skewX(8deg) scaleY(1.1);
+    }
+}
+
+@keyframes cheer {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-20px);
+    }
+}
+
+@keyframes pulse-line {
+    0%, 100% {
+        opacity: 0.3;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+@media (max-width: 768px) {
+    .rooms-container {
+        padding: 10px;
+    }
+    .rooms-title {
+        font-size: 2.2rem;
+        margin-bottom: 20px;
+    }
+    .rooms-list {
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+    .room-card {
+        width: 90%;
+        padding: 15px;
+    }
+    .room-name {
+        font-size: 1.5rem;
+    }
+    .room-status {
+        font-size: 1.1rem;
+    }
+    .room-info {
+        font-size: 0.9rem;
+    }
+    .room-button {
+        padding: 10px 20px;
+        font-size: 1rem;
+    }
+    .back-button {
+        padding: 10px 25px;
+        font-size: 1rem;
+        margin-top: 20px;
+    }
+    .basketball-ball {
+        width: 40px;
+        height: 40px;
+    }
+    .ball-1 {
+        top: 5%;
+        left: 10%;
+    }
+    .ball-2 {
+        top: 25%;
+        left: 60%;
+    }
+    .ball-3 {
+        top: 45%;
+        left: 25%;
+    }
+    .hoop-animation {
+        width: 90px;
+        height: 54px;
+    }
+    .hoop-ring {
+        width: 90px;
+        height: 9px;
+    }
+    .hoop-net {
+        top: 9px;
+        height: 45px;
+    }
+    .hoop-left {
+        top: 5%;
+        left: 5%;
+    }
+    .hoop-right {
+        top: 5%;
+        right: 5%;
+    }
+    .crowd-person {
+        width: 20px;
+        height: 35px;
+    }
+    .crowd-animation {
+        height: 10%;
+    }
+}
