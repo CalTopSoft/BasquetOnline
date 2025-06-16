@@ -134,7 +134,7 @@
             const roundRef = useRef(1);
             const turnRef = useRef(0);
             const countdownRef = useRef(0);
-            const rankingsRef = useRef([]);
+            const [rankings, setRankings] = useState([]);
             const [roomStatus, setRoomStatus] = useState({ room1: { players: 0 }, room2: { players: 0 } });
             const [roomStatusKey, setRoomStatusKey] = useState(0);
             const playerIndexRef = useRef(null);
@@ -258,7 +258,8 @@
                         }
 
                         if (data.type === 'rankings') {
-                            rankingsRef.current = data.rankings;
+                            setRankings(data.rankings);
+                            console.log("Rankings actualizados:", data.rankings);
                         }
 
                         if (data.type === 'full') {
@@ -751,7 +752,7 @@
                 );
             };
 
-            const Rankings = ({ setScreen }) => {
+            const Rankings = ({ setScreen, rankings }) => {
                 return (
                     <div className="rankings-container">
                         <div className="court-lines">
@@ -796,7 +797,7 @@
                         </div>
                         <h1 className="rankings-title">Rankings</h1>
                         <div className="rankings-list">
-                            {rankingsRef.current.map((entry, index) => (
+                            {rankings.map((entry, index) => (
                                 <div key={index} className="ranking-item">
                                     <span className="ranking-position">{index + 1}</span>
                                     <span className="ranking-name">{entry.name}</span>
@@ -875,7 +876,7 @@
                 };
 
                 const handleBack = () => {
-                    setRoomStatusKey(prev => prev + 1); // Forzar re-render de Rooms
+                    setRoomStatusKey(prev => prev + 1);
                     setScreen('rooms');
                 };
 
@@ -892,7 +893,7 @@
                     {screen === 'home' && <Home setScreen={setScreen} nameRef={nameRef} />}
                     {screen === 'rooms' && <Rooms setScreen={setScreen} />}
                     {screen === 'gameplay' && <Gameplay name={nameRef.current} setScreen={setScreen} />}
-                    {screen === 'rankings' && <Rankings setScreen={setScreen} />}
+                    {screen === 'rankings' && <Rankings setScreen={setScreen} rankings={rankings} />}
                     {screen === 'credits' && <Credits setScreen={setScreen} />}
                     {screen === 'result' && <Result winner={winner} nameRef={nameRef} setScreen={setScreen} setRoomStatusKey={setRoomStatusKey} />}
                 </div>
