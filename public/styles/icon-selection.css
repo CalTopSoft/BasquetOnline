@@ -613,6 +613,7 @@ body::-webkit-scrollbar {
 
 @media (max-width: 480px) {
     .icon-selection-title {
+        padding: 20px 0px;
         font-size: 2rem;
     }
     
