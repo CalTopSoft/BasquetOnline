@@ -399,14 +399,38 @@ input {
     width: 52px;
     height: 52px;
     border-radius: 50%;
-    border: 4px solid #000;
-    background-color: #348889;
-    box-shadow: 
-        0 0 0 3px #ffcc00,   /* Resaltado amarillo como el nombre */
-        0 4px 0 #000;        /* Sombra estilo cartoon */
+    border: 3px solid #18b865; /* borde verde */
+    background-color: #3a3d3d; /* fondo azul */
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     z-index: 100;
     animation: bounceIcon 1.5s ease-in-out infinite;
+
+    /* sombras estilo icon-selection */
+    box-shadow: 
+        0 5px 15px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(212, 56, 255, 0.5);
+    filter: drop-shadow(0 0 5px rgba(255, 106, 0, 0.7));
 }
+
+.player-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    transition: transform 0.3s ease, filter 0.3s ease, box-shadow 0.3s ease;
+}
+
+.player-icon:hover img {
+    transform: scale(1.1);
+    box-shadow: 
+        0 5px 15px rgba(0, 0, 0, 0.5), 
+        0 0 20px rgb(235, 75, 75);
+    filter: drop-shadow(0 0 10px rgba(237, 41, 7, 0.9));
+}
+
 
 @keyframes bounceIcon {
     0%, 100% {
