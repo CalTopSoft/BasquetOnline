@@ -396,10 +396,10 @@ input {
 .player-icon {
     position: absolute;
     top: -70px;
-    width: 52px;
-    height: 52px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
-    border: 3px solid #18b865; /* borde verde */
+    border: 3px solid #16e47a; /* borde verde */
     background-color: #3a3d3d; /* fondo azul */
     overflow: hidden;
     display: flex;
@@ -411,13 +411,13 @@ input {
     /* sombras estilo icon-selection */
     box-shadow: 
         0 5px 15px rgba(0, 0, 0, 0.5),
-        0 0 20px rgba(212, 56, 255, 0.5);
-    filter: drop-shadow(0 0 5px rgba(255, 106, 0, 0.7));
+        0 0 20px rgba(0, 0, 0, 0.5);
+    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.7));
 }
 
 .player-icon img {
-    width: 100%;
-    height: 100%;
+    width: 110%;
+    height: 110%;
     object-fit: cover;
     object-position: center;
     transition: transform 0.3s ease, filter 0.3s ease, box-shadow 0.3s ease;
@@ -427,8 +427,8 @@ input {
     transform: scale(1.1);
     box-shadow: 
         0 5px 15px rgba(0, 0, 0, 0.5), 
-        0 0 20px rgb(235, 75, 75);
-    filter: drop-shadow(0 0 10px rgba(237, 41, 7, 0.9));
+        0 0 20px rgb(0, 0, 0);
+    filter: drop-shadow(0 0 10px rgba(32, 217, 15, 0.9));
 }
 
 
