@@ -670,16 +670,22 @@
                             <div className="round">Ronda {roundRef.current}/3</div>
                             {playersRef.current[0] && (
                                 <>
-                                    <img src={playerIconsRef.current[0]} alt="Player 1" className="player-icon player1" />
+                                    <div className="player-icon player1">
+                                        <img src={playerIconsRef.current[0]} alt="Player 1" />
+                                    </div>
                                     <div className="player-name player1-name">{playersRef.current[0]}</div>
                                 </>
                             )}
+
                             {playersRef.current[1] && (
                                 <>
-                                    <img src={playerIconsRef.current[1]} alt="Player 2" className="player-icon player2" />
+                                    <div className="player-icon player2">
+                                        <img src={playerIconsRef.current[1]} alt="Player 2" />
+                                    </div>
                                     <div className="player-name player2-name">{playersRef.current[1]}</div>
                                 </>
                             )}
+
                             <div className="turn-indicator" style={{ display: 'none' }}>Modo Edición - Sin Turnos</div>
                             {gameStarted && (
                                 <>
