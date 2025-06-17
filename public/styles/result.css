@@ -1,0 +1,338 @@
+.result-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    width: 100vw;
+    background: 
+        radial-gradient(circle at center, rgba(10, 25, 50, 0.9) 0%, rgba(5, 15, 30, 0.95) 100%),
+        url('img/court-background.jpg') no-repeat center center;
+    background-size: cover;
+    font-family: 'Rajdhani', 'Impact', sans-serif;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    perspective: 1000px;
+}
+
+/* Efecto de partículas energéticas */
+.result-container::before {
+    content: '';
+    position: absolute;
+    width: 200%;
+    height: 200%;
+    background: 
+        radial-gradient(circle, rgba(255,255,255,0.02) 0%, transparent 70%),
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 2px,
+            rgba(255,255,255,0.03) 2px,
+            rgba(255,255,255,0.03) 4px
+        );
+    animation: particleFlow 20s linear infinite;
+    z-index: 1;
+}
+
+@keyframes particleFlow {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* TEXTO EPICÓNICO */
+.result-message {
+    font-size: 5rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    margin-bottom: 3rem;
+    padding: 2rem 4rem;
+    position: relative;
+    z-index: 10;
+    text-shadow: 0 0 10px currentColor;
+    letter-spacing: 2px;
+    animation: textAppear 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+    border: 2px solid;
+    border-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent) 1;
+}
+
+/* WIN - Efecto de energía positiva */
+.result-message.win {
+    color: #00FF88;
+    animation: 
+        textAppear 1s forwards,
+        winPulse 2s infinite,
+        energyWave 4s infinite;
+    text-shadow: 
+        0 0 15px #00FF88,
+        0 0 30px rgba(0, 255, 136, 0.5);
+}
+
+@keyframes winPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes energyWave {
+    0% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); }
+    70% { box-shadow: 0 0 0 20px rgba(0, 255, 136, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); }
+}
+
+/* LOSE - Efecto de distorsión */
+.result-message.lose {
+    color: #FF2A5F;
+    animation: 
+        textAppear 1s forwards,
+        loseDistortion 3s infinite,
+        shake 0.5s infinite;
+    text-shadow: 
+        0 0 15px #FF2A5F,
+        0 0 30px rgba(255, 42, 95, 0.5);
+}
+
+@keyframes loseDistortion {
+    0%, 100% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+    25% { clip-path: polygon(0 5%, 100% 0, 95% 100%, 0 100%); }
+    50% { clip-path: polygon(0 0, 95% 0, 100% 100%, 5% 100%); }
+    75% { clip-path: polygon(5% 0, 100% 5%, 95% 100%, 0 95%); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+/* TIE - Efecto de estática */
+.result-message.tie {
+    color: #FFEE58;
+    animation: 
+        textAppear 1s forwards,
+        tieStatic 3s infinite,
+        float 4s infinite ease-in-out;
+    text-shadow: 
+        0 0 15px #FFEE58,
+        0 0 30px rgba(255, 238, 88, 0.5);
+}
+
+@keyframes tieStatic {
+    0%, 100% { opacity: 1; }
+    20% { opacity: 0.8; }
+    40% { opacity: 0.9; }
+    60% { opacity: 0.7; }
+    80% { opacity: 1; }
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-15px); }
+}
+
+/* BOTÓN QUE PARECE SALIR DE UN JUEGO */
+.result-button {
+    background: linear-gradient(135deg, #FF5722 0%, #FF9800 100%);
+    color: white;
+    border: none;
+    padding: 1.5rem 4rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    position: relative;
+    z-index: 10;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    box-shadow: 
+        0 5px 15px rgba(255, 87, 34, 0.4),
+        0 10px 30px rgba(255, 152, 0, 0.2),
+        inset 0 1px 1px rgba(255,255,255,0.2);
+    transform-style: preserve-3d;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    overflow: hidden;
+    animation: buttonAppear 1s 0.5s both;
+}
+
+.result-button::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        to bottom right,
+        rgba(255,255,255,0) 45%,
+        rgba(255,255,255,0.8) 50%,
+        rgba(255,255,255,0) 55%
+    );
+    transform: rotate(45deg);
+    animation: buttonShine 3s infinite;
+}
+
+.result-button:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 
+        0 8px 25px rgba(255, 87, 34, 0.6),
+        0 15px 40px rgba(255, 152, 0, 0.3),
+        inset 0 1px 1px rgba(255,255,255,0.2);
+}
+
+.result-button:active {
+    transform: translateY(0) scale(0.98);
+}
+
+@keyframes buttonShine {
+    0% { left: -100%; top: -100%; }
+    100% { left: 100%; top: 100%; }
+}
+
+/* EFECTO DE BALÓN GIRANDO 3D */
+.basketball-3d {
+    position: absolute;
+    width: 150px;
+    height: 150px;
+    background: radial-gradient(circle at 30% 30%, #FF9800, #E65100);
+    border-radius: 50%;
+    z-index: 5;
+    animation: 
+        spin 8s infinite linear,
+        float 6s infinite ease-in-out;
+    box-shadow: 
+        0 0 30px rgba(255, 152, 0, 0.5),
+        inset 0 -10px 20px rgba(0,0,0,0.3);
+    transform-style: preserve-3d;
+}
+
+.basketball-3d::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: 
+        linear-gradient(
+            to bottom,
+            transparent 45%,
+            rgba(0,0,0,0.7) 45%,
+            rgba(0,0,0,0.7) 55%,
+            transparent 55%
+        ),
+        linear-gradient(
+            to right,
+            transparent 45%,
+            rgba(0,0,0,0.7) 45%,
+            rgba(0,0,0,0.7) 55%,
+            transparent 55%
+        );
+    border-radius: 50%;
+}
+
+@keyframes spin {
+    0% { transform: rotateY(0deg); }
+    100% { transform: rotateY(360deg); }
+}
+
+/* ANIMACIONES DE ENTRADA */
+@keyframes textAppear {
+    from { 
+        opacity: 0;
+        transform: translateY(50px) rotateX(90deg);
+        filter: blur(10px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0) rotateX(0);
+        filter: blur(0);
+    }
+}
+
+@keyframes buttonAppear {
+    from { 
+        opacity: 0;
+        transform: translateY(30px) scale(0.8);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* EFECTO DE CONFETI DINÁMICO */
+.confetti-container {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: 2;
+}
+
+.confetti {
+    position: absolute;
+    width: 15px;
+    height: 15px;
+    opacity: 0;
+    animation: confettiFall 4s linear infinite;
+}
+
+.confetti:nth-child(1) { 
+    background: #FF5722; 
+    left: 10%; 
+    animation-delay: 0s; 
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+.confetti:nth-child(2) { 
+    background: #4CAF50; 
+    left: 30%; 
+    animation-delay: 0.5s; 
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+}
+.confetti:nth-child(3) { 
+    background: #2196F3; 
+    left: 50%; 
+    animation-delay: 1s; 
+    clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+.confetti:nth-child(4) { 
+    background: #FFEB3B; 
+    left: 70%; 
+    animation-delay: 1.5s; 
+    clip-path: polygon(0% 0%, 100% 0%, 50% 100%);
+}
+.confetti:nth-child(5) { 
+    background: #9C27B0; 
+    left: 90%; 
+    animation-delay: 2s; 
+    clip-path: circle(50% at 50% 50%);
+}
+
+@keyframes confettiFall {
+    0% { 
+        transform: translateY(-100px) rotate(0deg) scale(0.5); 
+        opacity: 0; 
+    }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { 
+        transform: translateY(100vh) rotate(720deg) scale(1); 
+        opacity: 0; 
+    }
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+    .result-message {
+        font-size: 3rem;
+        padding: 1.5rem 2.5rem;
+    }
+    
+    .result-button {
+        padding: 1.2rem 3rem;
+        font-size: 1.2rem;
+    }
+    
+    .basketball-3d {
+        width: 100px;
+        height: 100px;
+    }
+}
