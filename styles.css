@@ -1,3 +1,4 @@
+
 body {
     margin: 0;
     font-family: Arial, sans-serif;
@@ -399,7 +400,7 @@ input {
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    border: 3px solid #16e47a; /* borde verde */
+    border: 3px solid #000000; /* borde verde */
     background-color: #3a3d3d; /* fondo azul */
     overflow: hidden;
     display: flex;
@@ -512,6 +513,7 @@ input {
     color: white;
     text-shadow: 2px 2px 4px black;
 }
+@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
 
 @media only screen and (max-width: 768px) {
     .round {
@@ -561,7 +563,7 @@ input {
         right: 110px;
     }
     .player-name, .round, .score-player {
-        font-family: 'Impact', cursive;
+        font-family: 'Anton', sans-serif;
     }
     .turn {
         position: absolute;
