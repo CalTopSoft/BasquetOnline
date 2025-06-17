@@ -60,6 +60,16 @@ const loadRankings = async () => {
 
 const saveRankings = async () => {
     await fs.writeFile('rankings.json', JSON.stringify(rankings, null, 2));
+    broadcastRankings();
+};
+
+const broadcastRankings = () => {
+    console.log(`Enviando rankings: ${JSON.stringify(rankings)}`);
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ type: 'rankings', rankings }));
+        }
+    });
 };
 
 loadRankings();
@@ -70,10 +80,12 @@ const updateGameState = () => {
         if (!room.gameStarted || room.gameEnded) continue;
 
         const now = Date.now();
+        const stateChanged = { timer: false, ball: false, hoop: false };
 
         if (now - room.lastTimerUpdate >= 1000 && !room.shotInProgress) {
             room.timer -= 1;
             room.lastTimerUpdate = now;
+            stateChanged.timer = true;
             if (room.timer <= 0) {
                 passTurn(room, roomName);
             }
@@ -85,6 +97,7 @@ const updateGameState = () => {
             if (room.hoopX >= 450 || room.hoopX <= 150) {
                 room.hoopDirection *= -1;
             }
+            stateChanged.hoop = true;
         } else {
             room.hoopX = 300;
         }
@@ -106,6 +119,7 @@ const updateGameState = () => {
                 else room.ball.x = 600 - 30;
                 room.ball.vx *= -0.8;
                 room.ball.vy += (Math.random() - 0.5) * 1;
+                stateChanged.ball = true;
             }
 
             if (room.ball.y + 30 >= 370 && room.bounceCount < 3) {
@@ -128,6 +142,7 @@ const updateGameState = () => {
                     }
 
                     room.lastBounceTime = now;
+                    stateChanged.ball = true;
 
                     room.players.forEach(p => {
                         if (p.ws.readyState === WebSocket.OPEN) {
@@ -195,24 +210,27 @@ const updateGameState = () => {
                     }
                 }
             }
+            stateChanged.ball = true;
         }
 
-        room.players.forEach(p => {
-            if (p.ws.readyState === WebSocket.OPEN) {
-                p.ws.send(JSON.stringify({
-                    type: 'update',
-                    scores: room.scores,
-                    turn: room.turn,
-                    ball: room.ball,
-                    timer: room.timer,
-                    hoopX: room.hoopX,
-                    round: room.round,
-                    attempts: room.attempts,
-                    players: room.players.map(player => player.name),
-                    playerIcons: room.playerIcons
-                }));
-            }
-        });
+        if (stateChanged.timer || stateChanged.ball || stateChanged.hoop) {
+            room.players.forEach(p => {
+                if (p.ws.readyState === WebSocket.OPEN) {
+                    p.ws.send(JSON.stringify({
+                        type: 'update',
+                        scores: room.scores,
+                        turn: room.turn,
+                        ball: room.ball,
+                        timer: room.timer,
+                        hoopX: room.hoopX,
+                        round: room.round,
+                        attempts: room.attempts,
+                        players: room.players.map(player => player.name),
+                        playerIcons: room.playerIcons
+                    }));
+                }
+            });
+        }
     }
 };
 
@@ -240,7 +258,13 @@ const passTurn = async (room, roomName) => {
             room.players.forEach(p => {
                 if (p.ws.readyState === WebSocket.OPEN) {
                     if (room.players[winner]) {
-                        p.ws.send(JSON.stringify({ type: 'end', winner: room.players[winner].name }));
+                        p.ws.send(JSON.stringify({ 
+                            type: 'end', 
+                            winnerIndex: winner,
+                            winnerName: room.players[winner].name,
+                            players: room.players.map(player => player.name),
+                            playerIcons: room.playerIcons 
+                        }));
                     }
                 }
             });
@@ -250,8 +274,6 @@ const passTurn = async (room, roomName) => {
                 rankings.sort((a, b) => b.score - a.score);
                 rankings = rankings.slice(0, 5);
                 await saveRankings();
-                
-                broadcastRoomStatus();
             }
             
             resetRoom(room);
@@ -341,15 +363,17 @@ const endGame = async (room, roomName) => {
     
     let winner = room.scores[0] > room.scores[1] ? 0 : room.scores[1] > room.scores[0] ? 1 : -1;
     
+    console.log(`Fin del juego en ${roomName}, winnerIndex: ${winner}, scores: ${room.scores}`);
+
     room.players.forEach(p => {
         if (p.ws.readyState === WebSocket.OPEN) {
-            if (winner === -1) {
-                p.ws.send(JSON.stringify({ type: 'end', winner: 'tie', playerIcons: room.playerIcons }));
-            } else if (room.players[winner]) {
-                p.ws.send(JSON.stringify({ type: 'end', winner: room.players[winner].name, playerIcons: room.playerIcons }));
-            } else {
-                p.ws.send(JSON.stringify({ type: 'end', winner: 'Desconectado', playerIcons: room.playerIcons }));
-            }
+            p.ws.send(JSON.stringify({
+                type: 'end',
+                winnerIndex: winner,
+                winnerName: winner === -1 ? 'tie' : room.players[winner] ? room.players[winner].name : 'Desconectado',
+                players: room.players.map(player => player.name),
+                playerIcons: room.playerIcons
+            }));
         }
     });
     
@@ -363,8 +387,6 @@ const endGame = async (room, roomName) => {
     rankings.sort((a, b) => b.score - a.score);
     rankings = rankings.slice(0, 5);
     await saveRankings();
-    
-    broadcastRoomStatus();
     
     resetRoom(room);
     broadcastRoomStatus();
@@ -388,10 +410,9 @@ wss.on('connection', (ws) => {
     ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);
-            console.log(`Mensaje recibido: ${JSON.stringify(data)}`);
+            // console.log(`Mensaje recibido: ${JSON.stringify(data)}`); // Comentar en producción
 
             if (data.type === 'join') {
-                console.log(`Procesando join para ${data.room} por ${data.name}`);
                 const room = rooms[data.room];
                 if (room.players.length < 2) {
                     const playerIndex = room.players.length;
@@ -475,7 +496,6 @@ wss.on('connection', (ws) => {
             }
 
             if (data.type === 'leave') {
-                console.log(`Procesando leave para ${data.room}`);
                 const room = rooms[data.room];
                 const index = room.players.findIndex(p => p.ws === ws);
                 if (index !== -1) {
@@ -485,7 +505,13 @@ wss.on('connection', (ws) => {
                     if (room.players.length < 2) {
                         room.players.forEach(p => {
                             if (p.ws.readyState === WebSocket.OPEN) {
-                                p.ws.send(JSON.stringify({ type: 'end', winner: 'Desconectado', playerIcons: room.playerIcons }));
+                                p.ws.send(JSON.stringify({ 
+                                    type: 'end', 
+                                    winnerIndex: -1,
+                                    winnerName: 'Desconectado',
+                                    players: room.players.map(player => player.name),
+                                    playerIcons: room.playerIcons 
+                                }));
                             }
                         });
                         resetRoom(room);
@@ -500,7 +526,6 @@ wss.on('connection', (ws) => {
     });
 
     ws.on('close', () => {
-        console.log('Cliente desconectado');
         for (const roomName in rooms) {
             const room = rooms[roomName];
             const index = room.players.findIndex(p => p.ws === ws);
@@ -511,7 +536,13 @@ wss.on('connection', (ws) => {
                 if (room.players.length < 2) {
                     room.players.forEach(p => {
                         if (p.ws.readyState === WebSocket.OPEN) {
-                            p.ws.send(JSON.stringify({ type: 'end', winner: 'Desconectado', playerIcons: room.playerIcons }));
+                            p.ws.send(JSON.stringify({ 
+                                type: 'end', 
+                                winnerIndex: -1,
+                                winnerName: 'Desconectado',
+                                players: room.players.map(player => player.name),
+                                playerIcons: room.playerIcons 
+                            }));
                         }
                     });
                     resetRoom(room);
