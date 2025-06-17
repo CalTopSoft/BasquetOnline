@@ -24,7 +24,7 @@ const rooms = {
         gameEnded: false,
         shotInProgress: false,
         lastBounceTime: 0,
-        playerIcons: ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png']
+        playerIcons: ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'] // Nuevo campo para iconos
     },
     room2: { 
         players: [], 
@@ -44,11 +44,10 @@ const rooms = {
         gameEnded: false,
         shotInProgress: false,
         lastBounceTime: 0,
-        playerIcons: ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png']
+        playerIcons: ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'] // Nuevo campo para iconos
     }
 };
 let rankings = [];
-let lastBroadcastTime = 0;
 
 const loadRankings = async () => {
     try {
@@ -61,33 +60,6 @@ const loadRankings = async () => {
 
 const saveRankings = async () => {
     await fs.writeFile('rankings.json', JSON.stringify(rankings, null, 2));
-    broadcastRankings();
-};
-
-const broadcastRankings = () => {
-    wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({ type: 'rankings', rankings }));
-        }
-    });
-};
-
-const broadcastRoomStatus = () => {
-    const now = Date.now();
-    if (now - lastBroadcastTime < 500) return;
-    lastBroadcastTime = now;
-
-    wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({ 
-                type: 'rooms', 
-                rooms: { 
-                    room1: { players: rooms.room1.players.length }, 
-                    room2: { players: rooms.room2.players.length } 
-                }
-            }));
-        }
-    });
 };
 
 loadRankings();
@@ -98,12 +70,10 @@ const updateGameState = () => {
         if (!room.gameStarted || room.gameEnded) continue;
 
         const now = Date.now();
-        const stateChanged = { timer: false, ball: false, hoop: false };
 
         if (now - room.lastTimerUpdate >= 1000 && !room.shotInProgress) {
             room.timer -= 1;
             room.lastTimerUpdate = now;
-            stateChanged.timer = true;
             if (room.timer <= 0) {
                 passTurn(room, roomName);
             }
@@ -115,7 +85,6 @@ const updateGameState = () => {
             if (room.hoopX >= 450 || room.hoopX <= 150) {
                 room.hoopDirection *= -1;
             }
-            stateChanged.hoop = true;
         } else {
             room.hoopX = 300;
         }
@@ -137,21 +106,22 @@ const updateGameState = () => {
                 else room.ball.x = 600 - 30;
                 room.ball.vx *= -0.8;
                 room.ball.vy += (Math.random() - 0.5) * 1;
-                stateChanged.ball = true;
             }
 
             if (room.ball.y + 30 >= 370 && room.bounceCount < 3) {
                 if (now - room.lastBounceTime > 200) {
-                    room.ball.y = 370 - 30;
+                    room.ball.y = 370 - 30; // Posición en el suelo
                     room.bounceCount++;
                     
                     if (room.bounceCount < 3) {
+                        // Rebotes 1 y 2: Reducir velocidad
                         room.ball.vy = -Math.abs(room.ball.vy) * 0.75;
                         if (Math.abs(room.ball.vx) > 0.1) room.ball.vx *= 0.9;
                         else room.ball.vx += (Math.random() - 0.5) * 3;
                         const centerOffset = room.ball.x - 300;
                         room.ball.vx += centerOffset * 0.03;
                     } else {
+                        // Tercer rebote: Detener completamente
                         room.ball.vy = 0;
                         room.ball.vx = 0;
                         room.ball.thrown = false;
@@ -160,7 +130,6 @@ const updateGameState = () => {
                     }
 
                     room.lastBounceTime = now;
-                    stateChanged.ball = true;
 
                     room.players.forEach(p => {
                         if (p.ws.readyState === WebSocket.OPEN) {
@@ -205,8 +174,7 @@ const updateGameState = () => {
                                 scores: room.scores,
                                 turn: room.turn,
                                 previousScore: previousScore,
-                                newScore: room.scores[room.turn],
-                                playerIcons: room.playerIcons
+                                newScore: room.scores[room.turn]
                             }));
                         }
                     });
@@ -229,30 +197,28 @@ const updateGameState = () => {
                     }
                 }
             }
-            stateChanged.ball = true;
         }
 
-        if (stateChanged.timer || stateChanged.ball || stateChanged.hoop) {
-            room.players.forEach(p => {
-                if (p.ws.readyState === WebSocket.OPEN) {
-                    p.ws.send(JSON.stringify({
-                        type: 'update',
-                        scores: room.scores,
-                        turn: room.turn,
-                        ball: room.ball,
-                        timer: room.timer,
-                        hoopX: room.hoopX,
-                        round: room.round,
-                        attempts: room.attempts,
-                        players: room.players.map(player => player.name),
-                        playerIcons: room.playerIcons
-                    }));
-                }
-            });
-        }
+        room.players.forEach(p => {
+            if (p.ws.readyState === WebSocket.OPEN) {
+                p.ws.send(JSON.stringify({
+                    type: 'update',
+                    scores: room.scores,
+                    turn: room.turn,
+                    ball: room.ball,
+                    timer: room.timer,
+                    hoopX: room.hoopX,
+                    round: room.round,
+                    attempts: room.attempts,
+                    players: room.players.map(player => player.name),
+                    playerIcons: room.playerIcons // Enviar iconos
+                }));
+            }
+        });
     }
 };
 
+// Resto del código del servidor (sin cambios)
 const finalizarTiro = (room, roomName, wasSuccessful) => {
     room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
     room.bounceCount = 0;
@@ -277,13 +243,7 @@ const passTurn = async (room, roomName) => {
             room.players.forEach(p => {
                 if (p.ws.readyState === WebSocket.OPEN) {
                     if (room.players[winner]) {
-                        p.ws.send(JSON.stringify({ 
-                            type: 'end', 
-                            winnerIndex: winner,
-                            winnerName: room.players[winner].name,
-                            players: room.players.map(player => player.name),
-                            playerIcons: room.playerIcons 
-                        }));
+                        p.ws.send(JSON.stringify({ type: 'end', winner: room.players[winner].name }));
                     }
                 }
             });
@@ -293,10 +253,27 @@ const passTurn = async (room, roomName) => {
                 rankings.sort((a, b) => b.score - a.score);
                 rankings = rankings.slice(0, 5);
                 await saveRankings();
+                
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify({ type: 'rankings', rankings }));
+                    }
+                });
             }
             
             resetRoom(room);
-            broadcastRoomStatus();
+            
+            wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({ 
+                        type: 'rooms', 
+                        rooms: { 
+                            room1: { players: rooms.room1.players.length }, 
+                            room2: { players: rooms.room2.players.length } 
+                        }
+                    }));
+                }
+            });
             return;
         }
     }
@@ -348,8 +325,7 @@ const passTurn = async (room, roomName) => {
                         turn: room.turn,
                         attempts: room.attempts,
                         scores: room.scores,
-                        players: room.players.map(player => player.name),
-                        playerIcons: room.playerIcons
+                        players: room.players.map(player => player.name)
                     }));
                 }
             });
@@ -385,13 +361,13 @@ const endGame = async (room, roomName) => {
     
     room.players.forEach(p => {
         if (p.ws.readyState === WebSocket.OPEN) {
-            p.ws.send(JSON.stringify({
-                type: 'end',
-                winnerIndex: winner,
-                winnerName: winner === -1 ? 'tie' : room.players[winner] ? room.players[winner].name : 'Desconectado',
-                players: room.players.map(player => player.name),
-                playerIcons: room.playerIcons
-            }));
+            if (winner === -1) {
+                p.ws.send(JSON.stringify({ type: 'end', winner: 'tie', playerIcons: room.playerIcons }));
+            } else if (room.players[winner]) {
+                p.ws.send(JSON.stringify({ type: 'end', winner: room.players[winner].name, playerIcons: room.playerIcons }));
+            } else {
+                p.ws.send(JSON.stringify({ type: 'end', winner: 'Desconectado', playerIcons: room.playerIcons }));
+            }
         }
     });
     
@@ -406,146 +382,122 @@ const endGame = async (room, roomName) => {
     rankings = rankings.slice(0, 5);
     await saveRankings();
     
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ type: 'rankings', rankings }));
+        }
+    });
+    
     resetRoom(room);
-    broadcastRoomStatus();
+    
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ 
+                type: 'rooms', 
+                rooms: { 
+                    room1: { players: rooms.room1.players.length }, 
+                    room2: { players: rooms.room2.players.length } 
+                }
+            }));
+        }
+    });
 };
 
 wss.on('connection', (ws) => {
     ws.on('message', async (message) => {
-        try {
-            const data = JSON.parse(message);
+        const data = JSON.parse(message);
 
-            if (data.type === 'join') {
-                const room = rooms[data.room];
-                if (room.players.length < 2) {
-                    const playerIndex = room.players.length;
-                    room.players.push({ ws, name: data.name, index: playerIndex, icon: data.icon });
-                    room.playerIcons[playerIndex] = data.icon || 'img/iconos/memes/meme1.png';
-                    
-                    ws.send(JSON.stringify({ 
-                        type: 'joined', 
-                        room: data.room, 
-                        players: room.players.map(p => p.name),
-                        playerIndex: playerIndex,
-                        playerIcons: room.playerIcons
-                    }));
-                    
-                    if (room.players.length === 2) {
-                        room.gameStarted = true;
-                        room.gameEnded = false;
-                        room.turn = 0;
-                        room.attempts = [0, 0];
-                        room.totalAttempts = [0, 0];
-                        room.afk = [0, 0];
-                        room.scores = [0, 0];
-                        room.round = 1;
-                        room.timer = 8;
-                        room.lastTimerUpdate = Date.now();
-                        room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
-                        room.shotInProgress = false;
-                        room.lastBounceTime = 0;
-                        
-                        room.players.forEach(p => {
-                            if (p.ws.readyState === WebSocket.OPEN) {
-                                p.ws.send(JSON.stringify({ 
-                                    type: 'start', 
-                                    turn: room.turn, 
-                                    ball: room.ball, 
-                                    scores: room.scores, 
-                                    round: room.round, 
-                                    attempts: room.attempts,
-                                    players: room.players.map(player => player.name),
-                                    playerIcons: room.playerIcons
-                                }));
-                            }
-                        });
-                    } else {
-                        broadcastRoomStatus();
-                    }
-                } else {
-                    ws.send(JSON.stringify({ type: 'full' }));
-                }
-            }
-
-            if (data.type === 'shot') {
-                const room = rooms[data.room];
+        if (data.type === 'join') {
+            const room = rooms[data.room];
+            if (room.players.length < 2) {
+                const playerIndex = room.players.length;
+                room.players.push({ ws, name: data.name, index: playerIndex, icon: data.icon });
+                room.playerIcons[playerIndex] = data.icon || 'img/iconos/memes/meme1.png';
                 
-                if (room.turn !== data.playerIndex || !room.gameStarted || room.gameEnded || 
-                    room.ball.thrown || room.shotInProgress || room.attempts[room.turn] >= 5) {
-                    return;
-                }
-
-                room.ball.vx = data.ballVX;
-                room.ball.vy = data.ballVY;
-                room.ball.thrown = true;
-                room.ball.rotation = 0;
-                room.bounceCount = 0;
-                room.shotInProgress = true;
-                room.lastBounceTime = 0;
-            }
-
-            if (data.type === 'getRankings') {
-                ws.send(JSON.stringify({ type: 'rankings', rankings }));
-            }
-
-            if (data.type === 'getRooms') {
                 ws.send(JSON.stringify({ 
-                    type: 'rooms', 
-                    rooms: { 
-                        room1: { players: rooms.room1.players.length }, 
-                        room2: { players: rooms.room2.players.length } 
-                    }
+                    type: 'joined', 
+                    room: data.room, 
+                    players: room.players.map(p => p.name),
+                    playerIndex: playerIndex,
+                    playerIcons: room.playerIcons
                 }));
+                
+                if (room.players.length === 2) {
+                    room.gameStarted = true;
+                    room.gameEnded = false;
+                    room.turn = 0;
+                    room.attempts = [0, 0];
+                    room.totalAttempts = [0, 0];
+                    room.afk = [0, 0];
+                    room.scores = [0, 0];
+                    room.round = 1;
+                    room.timer = 8;
+                    room.lastTimerUpdate = Date.now();
+                    room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
+                    room.shotInProgress = false;
+                    room.lastBounceTime = 0;
+                    
+                    room.players.forEach(p => {
+                        if (p.ws.readyState === WebSocket.OPEN) {
+                            p.ws.send(JSON.stringify({ 
+                                type: 'start', 
+                                turn: room.turn, 
+                                ball: room.ball, 
+                                scores: room.scores, 
+                                round: room.round, 
+                                attempts: room.attempts,
+                                players: room.players.map(player => player.name),
+                                playerIcons: room.playerIcons
+                            }));
+                        }
+                    });
+                }
+                
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify({ 
+                            type: 'rooms', 
+                            rooms: { 
+                                room1: { players: rooms.room1.players.length }, 
+                                room2: { players: rooms.room2.players.length } 
+                            }
+                        }));
+                    }
+                });
+            } else {
+                ws.send(JSON.stringify({ type: 'full' }));
+            }
+        }
+
+        if (data.type === 'shot') {
+            const room = rooms[data.room];
+            
+            if (room.turn !== data.playerIndex || !room.gameStarted || room.gameEnded || 
+                room.ball.thrown || room.shotInProgress || room.attempts[room.turn] >= 5) {
+                return;
             }
 
-            if (data.type === 'leave') {
-                const room = rooms[data.room];
-                const index = room.players.findIndex(p => p.ws === ws);
-                if (index !== -1) {
-                    const playerName = room.players[index].name;
-                    room.players.splice(index, 1);
-                    room.playerIcons[index] = 'img/iconos/memes/meme1.png';
-                    
-                    if (room.players.length < 2) {
-                        if (room.gameStarted) {
-                            room.players.forEach(p => {
-                                if (p.ws.readyState === WebSocket.OPEN) {
-                                    p.ws.send(JSON.stringify({ 
-                                        type: 'end', 
-                                        winnerIndex: (index + 1) % 2,
-                                        winnerName: room.players[0] ? room.players[0].name : 'Desconectado',
-                                        players: [playerName, room.players[0] ? room.players[0].name : 'Desconectado'],
-                                        playerIcons: room.playerIcons 
-                                    }));
-                                }
-                            });
-                            if (room.players[0]) {
-                                rankings.push({ name: room.players[0].name, score: room.scores[(index + 1) % 2] });
-                                rankings.sort((a, b) => b.score - a.score);
-                                rankings = rankings.slice(0, 5);
-                                await saveRankings();
-                            }
-                        } else {
-                            room.players.forEach(p => {
-                                if (p.ws.readyState === WebSocket.OPEN) {
-                                    p.ws.send(JSON.stringify({ 
-                                        type: 'cancel', 
-                                        winnerIndex: -1,
-                                        winnerName: 'Desconectado',
-                                        players: [playerName, 'Desconectado'],
-                                        playerIcons: room.playerIcons 
-                                    }));
-                                }
-                            });
-                        }
-                        resetRoom(room);
-                    }
-                    
-                    broadcastRoomStatus();
+            room.ball.vx = data.ballVX;
+            room.ball.vy = data.ballVY;
+            room.ball.thrown = true;
+            room.ball.rotation = 0;
+            room.bounceCount = 0;
+            room.shotInProgress = true;
+            room.lastBounceTime = 0;
+        }
+
+        if (data.type === 'getRankings') {
+            ws.send(JSON.stringify({ type: 'rankings', rankings }));
+        }
+
+        if (data.type === 'getRooms') {
+            ws.send(JSON.stringify({ 
+                type: 'rooms', 
+                rooms: { 
+                    room1: { players: rooms.room1.players.length }, 
+                    room2: { players: rooms.room2.players.length } 
                 }
-            }
-        } catch (error) {
-            console.error('Error al procesar mensaje:', error);
+            }));
         }
     });
 
@@ -554,46 +506,29 @@ wss.on('connection', (ws) => {
             const room = rooms[roomName];
             const index = room.players.findIndex(p => p.ws === ws);
             if (index !== -1) {
-                const playerName = room.players[index].name;
                 room.players.splice(index, 1);
-                room.playerIcons[index] = 'img/iconos/memes/meme1.png';
+                room.playerIcons[index] = 'img/iconos/memes/meme1.png'; // Resetear icono
                 
-                if (room.players.length < 2) {
-                    if (room.gameStarted) {
-                        room.players.forEach(p => {
-                            if (p.ws.readyState === WebSocket.OPEN) {
-                                p.ws.send(JSON.stringify({ 
-                                    type: 'end', 
-                                    winnerIndex: (index + 1) % 2,
-                                    winnerName: room.players[0] ? room.players[0].name : 'Desconectado',
-                                    players: [playerName, room.players[0] ? room.players[0].name : 'Desconectado'],
-                                    playerIcons: room.playerIcons 
-                                }));
-                            }
-                        });
-                        if (room.players[0]) {
-                            rankings.push({ name: room.players[0].name, score: room.scores[(index + 1) % 2] });
-                            rankings.sort((a, b) => b.score - a.score);
-                            rankings = rankings.slice(0, 5);
-                            saveRankings();
+                if (room.gameStarted && room.players.length < 2) {
+                    room.players.forEach(p => {
+                        if (p.ws.readyState === WebSocket.OPEN) {
+                            p.ws.send(JSON.stringify({ type: 'end', winner: 'Desconectado', playerIcons: room.playerIcons }));
                         }
-                    } else {
-                        room.players.forEach(p => {
-                            if (p.ws.readyState === WebSocket.OPEN) {
-                                p.ws.send(JSON.stringify({ 
-                                    type: 'cancel', 
-                                    winnerIndex: -1,
-                                    winnerName: 'Desconectado',
-                                    players: [playerName, 'Desconectado'],
-                                    playerIcons: room.playerIcons 
-                                }));
-                            }
-                        });
-                    }
+                    });
                     resetRoom(room);
                 }
                 
-                broadcastRoomStatus();
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify({ 
+                            type: 'rooms', 
+                            rooms: { 
+                                room1: { players: rooms.room1.players.length }, 
+                                room2: { players: rooms.room2.players.length } 
+                            }
+                        }));
+                    }
+                });
             }
         }
     });
@@ -608,7 +543,7 @@ const resetRoom = (room) => {
     room.turn = 0;
     room.afk = [0, 0];
     room.ball = { x: 300, y: 370, vx: 0, vy: 0, thrown: false, rotation: 0 };
-    room.timer = 8;
+    room.timer = 0;
     room.lastTimerUpdate = Date.now();
     room.hoopX = 300;
     room.hoopDirection = 1;
@@ -617,10 +552,10 @@ const resetRoom = (room) => {
     room.gameEnded = false;
     room.shotInProgress = false;
     room.lastBounceTime = 0;
-    room.playerIcons = ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
+    room.playerIcons = ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png']; // Resetear iconos
 };
 
-setInterval(updateGameState, 30);
+setInterval(updateGameState, 16);
 
 server.listen(process.env.PORT || 8080, () => {
     console.log('Server running on port 8080');
