@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="public/styles/rankings.css">
     <link rel="stylesheet" href="public/styles/rooms.css">
     <link rel="stylesheet" href="public/styles/icon-selection.css">
+    <link rel="stylesheet" href="public/styles/result.css">
     <link rel="icon" href="img/iconoweb/favicon.ico" type="image/x-icon">
 
 </head>
@@ -827,18 +828,28 @@
                     return 'Perdiste';
                 };
 
-                return (
-                    <div className="container">
-                        <h1>{getResultMessage()}</h1>
-                        <button onClick={() => setScreen('rooms')}>Volver</button>
-                    </div>
-                );
+                const getResultClass = () => {
+                    if (winner === 'tie') return 'tie';
+                    if (winner === 'Desconectado') return 'disconnected';
+                    if (winner === nameRef.current) return 'win';
+                    return 'lose';
+                };
 
-
                 return (
-                    <div className="container">
-                        <h1>{getResultMessage()}</h1>
-                        <button onClick={() => setScreen('rooms')}>Volver</button>
+                    <div className="result-container">
+                        <h1 className={`result-message ${getResultClass()}`}>{getResultMessage()}</h1>
+                        <button className="result-button" onClick={() => setScreen('rooms')}>Volver</button>
+                        <div className="confetti-animation">
+                            <div className="confetti confetti-1"></div>
+                            <div className="confetti confetti-2"></div>
+                            <div className="confetti confetti-3"></div>
+                            <div className="confetti confetti-4"></div>
+                        </div>
+                        <div className="basketball-animation">
+                            <div className="basketball-ball ball-1"></div>
+                            <div className="basketball-ball ball-2"></div>
+                            <div className="basketball-ball ball-3"></div>
+                        </div>
                     </div>
                 );
             };
