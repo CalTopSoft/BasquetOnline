@@ -116,10 +116,12 @@
 
         const App = () => {
             const [screen, setScreen] = useState('home');
+            const [isSelectingIcon, setIsSelectingIcon] = useState(false);
             const nameRef = useRef('Jugador1');
             const [room, setRoom] = useState(null);
             const [gameStarted, setGameStarted] = useState(false);
             const [winnerData, setWinnerData] = useState(null);
+            const [localPlayerIndex, setLocalPlayerIndex] = useState(null);
             const playersRef = useRef([]);
             const scoresRef = useRef([0, 0]);
             const roundRef = useRef(1);
@@ -161,9 +163,8 @@
                 wsRef.current.onmessage = (event) => {
                     try {
                         const data = JSON.parse(event.data);
-                        // console.log("Mensaje recibido del WebSocket:", data); // Comentar en producción
 
-                        if (data.type === 'rooms') {
+                        if (data.type === 'rooms' && !isSelectingIcon && screen !== 'gameplay' && screen !== 'result') {
                             setRoomStatus(data.rooms);
                         }
 
@@ -171,8 +172,10 @@
                             setRoom(data.room);
                             playersRef.current = data.players;
                             playerIndexRef.current = data.playerIndex;
+                            setLocalPlayerIndex(data.playerIndex);
                             playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
                             setScreen('gameplay');
+                            setIsSelectingIcon(false);
                         }
 
                         if (data.type === 'start') {
@@ -223,8 +226,7 @@
                             SoundManager.playSound('scoreAdd');
                         }
 
-                        if (data.type === 'end') {
-                            console.log(`Juego terminado, datos: ${JSON.stringify(data)}`);
+                        if (data.type === 'end' || data.type === 'cancel') {
                             setWinnerData(data);
                             setScreen('result');
                             setGameStarted(false);
@@ -236,7 +238,7 @@
                             playerIndexRef.current = null;
                             playerIconsRef.current = ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
                             SoundManager.stopWheels();
-                            if (data.winnerIndex === playerIndexRef.current) {
+                            if (data.winnerIndex === localPlayerIndex) {
                                 SoundManager.playSound('win');
                             } else if (data.winnerIndex !== -1 && data.winnerName !== 'Desconectado') {
                                 SoundManager.playSound('lose');
@@ -244,13 +246,13 @@
                         }
 
                         if (data.type === 'rankings') {
-                            console.log("Rankings recibidos:", data.rankings);
                             setRankings(data.rankings);
                         }
 
                         if (data.type === 'full') {
                             alert("La sala está llena. Por favor, elige otra sala.");
                             setScreen('rooms');
+                            setIsSelectingIcon(false);
                         }
                     } catch (error) {
                         console.error('Error al procesar mensaje WebSocket:', error);
@@ -267,9 +269,7 @@
             useEffect(() => {
                 SoundManager.init();
                 initializeWebSocket();
-                return () => {
-                    // No cerrar WebSocket aquí
-                };
+                return () => {};
             }, []);
 
             const Home = memo(({ setScreen, nameRef }) => {
@@ -365,13 +365,14 @@
                 );
             });
 
-            const Rooms = memo(({ setScreen }) => {
+            const Rooms = memo(({ setScreen, setIsSelectingIcon }) => {
                 const [showIconSelection, setShowIconSelection] = useState(false);
                 const [selectedRoom, setSelectedRoom] = useState(null);
 
                 const handleJoinRoom = (roomName) => {
                     setSelectedRoom(roomName);
                     setShowIconSelection(true);
+                    setIsSelectingIcon(true);
                 };
 
                 const handleIconSelected = (icon) => {
@@ -385,11 +386,13 @@
                         }));
                     }
                     setShowIconSelection(false);
+                    setIsSelectingIcon(false);
                 };
 
                 const handleBack = () => {
                     setShowIconSelection(false);
                     setSelectedRoom(null);
+                    setIsSelectingIcon(false);
                 };
 
                 const roomList = useMemo(() => (
@@ -711,7 +714,7 @@
                             {countdownRef.current > 0 && <div className="countdown">{countdownRef.current}</div>}
                             {!gameStarted && <div className="waiting-message">Esperando al segundo jugador...</div>}
                         </div>
-                        {!gameStarted && <button className="exit-button" onClick={handleExit}>Salir</button>}
+                        <button className="exit-button" onClick={handleExit} disabled={gameStarted}>Salir</button>
                     </div>
                 );
             };
@@ -831,12 +834,11 @@
                 );
             });
 
-            const Result = memo(({ winnerData, nameRef, setScreen }) => {
+            const Result = memo(({ winnerData, nameRef, setScreen, localPlayerIndex }) => {
                 const getResultMessage = () => {
-                    console.log(`Result: winnerData=${JSON.stringify(winnerData)}, nameRef=${nameRef.current}, playerIndex=${playerIndexRef.current}`);
                     if (winnerData.winnerIndex === -1) return '¡Empate!';
                     if (winnerData.winnerName === 'Desconectado') return 'Partida cancelada - Jugador desconectado';
-                    if (winnerData.winnerIndex === playerIndexRef.current) return '¡Ganaste!';
+                    if (winnerData.winnerIndex === localPlayerIndex) return '¡Ganaste!';
                     return 'Perdiste';
                 };
 
@@ -855,11 +857,11 @@
             return (
                 <div>
                     {screen === 'home' && <Home setScreen={setScreen} nameRef={nameRef} />}
-                    {screen === 'rooms' && <Rooms setScreen={setScreen} />}
+                    {screen === 'rooms' && <Rooms setScreen={setScreen} setIsSelectingIcon={setIsSelectingIcon} />}
                     {screen === 'gameplay' && <Gameplay name={nameRef.current} setScreen={setScreen} />}
                     {screen === 'rankings' && <Rankings setScreen={setScreen} rankings={rankings} />}
                     {screen === 'credits' && <Credits setScreen={setScreen} />}
-                    {screen === 'result' && <Result winnerData={winnerData} nameRef={nameRef} setScreen={setScreen} />}
+                    {screen === 'result' && <Result winnerData={winnerData} nameRef={nameRef} setScreen={setScreen} localPlayerIndex={localPlayerIndex} />}
                 </div>
             );
         };
