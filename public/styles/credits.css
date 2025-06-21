@@ -329,7 +329,7 @@
 /* Responsividad para móviles */
 @media (max-width: 768px) {
     .credits-container { padding: 10px; }
-    .credits-title { font-size: 3rem; margin-bottom: 20px; }
+    .credits-title { font-size: 2rem; margin-bottom: 20px; margin-top: 60px;}
     .credits-list { padding: 15px 20px; max-width: 95%; }
     .credits-item { font-size: 1.3rem; margin: 10px 0; }
     .back-button { padding: 12px 25px; font-size: 1.2rem; }
@@ -346,3 +346,89 @@
     .spotlight-2 { width: 300px; height: 300px; }
     .confetti { width: 8px; height: 8px; }
 }
+
+
+/* Contenedor para las tarjetas con grid para mejor control */
+.credits-cards {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr)); /* 4 columnas en PC */
+    gap: 30px;
+    max-width: 1100px;
+    width: 90%;
+    margin: 0 auto 30px;
+    z-index: 2;
+    justify-items: center; /* Centra horizontalmente las tarjetas dentro de sus celdas */
+    justify-content: center; /* Centra el grid en el contenedor */
+    box-sizing: border-box;
+  }
+  
+  /* Tarjeta individual */
+  .credit-card {
+    background: rgba(30, 40, 80, 0.95);
+    border: 3px solid #ffea00;
+    border-radius: 20px;
+    padding: 20px 25px;
+    width: 100%;        /* Para que ocupe todo el ancho de su celda */
+    max-width: 250px;   /* Limita el ancho máximo para evitar que crezca mucho */
+    box-shadow: 0 8px 20px rgba(255, 234, 0, 0.6);
+    color: #fff;
+    font-family: 'Impact', Arial, sans-serif;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    animation: scoreboardPulse 2.5s infinite ease-in-out;
+    cursor: default;
+    box-sizing: border-box;
+    overflow-wrap: break-word; /* Para que el texto no se salga */
+    word-break: break-word;
+  }
+  
+  .credit-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 30px rgba(255, 234, 0, 0.9);
+  }
+  
+  .credit-card h2 {
+    font-size: 1.6rem;
+    margin-bottom: 12px;
+    color: #00e676;
+    text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.8);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+  }
+  
+  .credit-card p {
+    font-size: 1.15rem;
+    font-weight: bold;
+    text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.7);
+    margin: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+  }
+  
+  /* Responsividad: 2 columnas x 2 filas para pantallas menores a 768px */
+  @media (max-width: 768px) {
+    .credits-cards {
+      grid-template-columns: repeat(2, minmax(0, 1fr)); /* 2 columnas */
+      gap: 20px 25px;
+      width: 90%;
+      justify-content: center;
+    }
+    .credit-card {
+      max-width: 160px; /* Tamaño más pequeño en móvil */
+      padding: 15px 20px;
+    }
+    .credit-card h2 {
+      font-size: 1.3rem;
+    }
+    .credit-card p {
+      font-size: 1rem;
+    }
+    .back-button {
+      padding: 12px 25px;
+      font-size: 1.2rem;
+    }
+    
+  }
+  
