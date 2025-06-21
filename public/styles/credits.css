@@ -1,0 +1,434 @@
+
+/* Contenedor principal de créditos */
+.credits-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    width: 100vw;
+    background: url('/img/court-background.jpg') no-repeat center center;
+    background-size: cover;
+    position: relative;
+    font-family: 'Impact', Arial, sans-serif;
+    color: #ffffff;
+    padding: 20px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+/* Overlay semi-transparente para contraste */
+.credits-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(20, 30, 60, 0.7);
+    z-index: 1;
+}
+
+/* Título con animación épica */
+.credits-title {
+    font-size: 5rem;
+    font-weight: bold;
+    color: #00e676;
+    text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.9), 0 0 25px #ffea00;
+    margin-bottom: 30px;
+    z-index: 2;
+    animation: slam 1.2s infinite, glow 1.8s infinite alternate;
+}
+
+/* Lista de créditos como pantalla de estadio */
+.credits-list {
+    background: rgba(30, 40, 80, 0.9);
+    border: 4px solid #ffea00;
+    border-radius: 20px;
+    padding: 25px 35px;
+    max-width: 600px;
+    width: 90%;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7), 0 0 30px rgba(255, 234, 0, 0.5);
+    z-index: 2;
+    text-align: center;
+    animation: scoreboardPulse 2s infinite ease-in-out;
+}
+
+/* Ítem de crédito con entrada animada */
+.credits-item {
+    font-size: 1.8rem;
+    color: #ffffff;
+    margin: 15px 0;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+    animation: slideIn 1.5s ease-in-out forwards;
+}
+
+/* Botón de volver con efecto de rebote */
+.back-button {
+    background: linear-gradient(45deg, #00e676, #4caf50);
+    color: #ffffff;
+    border: none;
+    padding: 18px 35px;
+    border-radius: 15px;
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 25px;
+    transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7);
+    animation: button-bounce 1.8s infinite ease-in-out;
+    z-index: 2;
+}
+
+.back-button:hover {
+    background: linear-gradient(45deg, #4caf50, #8bc34a);
+    transform: scale(1.15);
+    box-shadow: 0 6px 20px rgba(0, 230, 118, 0.8);
+}
+
+/* Líneas de cancha animadas */
+.court-lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.court-line {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.4);
+    animation: pulse-line 2.5s infinite ease-in-out;
+}
+
+.court-line-1 { width: 100%; height: 3px; top: 15%; }
+.court-line-2 { width: 100%; height: 3px; top: 40%; }
+.court-line-3 { width: 100%; height: 3px; top: 70%; }
+.court-line-4 { width: 3px; height: 100%; left: 35%; }
+.court-line-5 { width: 3px; height: 100%; left: 65%; }
+
+/* Pelotas de baloncesto animadas */
+.basketball-animation {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.basketball-ball {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    background: radial-gradient(circle at 30%, #ff5722, #bf360c);
+    border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+.ball-1 { top: 10%; left: 10%; animation: bounce-shot 2.2s infinite ease-in-out, spin 1.3s infinite linear; }
+.ball-2 { top: 50%; left: 70%; animation: bounce-shot 2.8s infinite ease-in-out 0.5s, spin 1.1s infinite linear; }
+.ball-3 { top: 30%; left: 30%; animation: bounce-shot 2.5s infinite ease-in-out 1s, spin 1.5s infinite linear; }
+
+/* Aros con redes animadas */
+.hoop-animation {
+    position: absolute;
+    width: 160px;
+    height: 90px;
+    z-index: 1;
+}
+
+.hoop-left { top: 5%; left: 5%; }
+.hoop-right { top: 5%; right: 5%; }
+
+.hoop-ring {
+    position: absolute;
+    width: 160px;
+    height: 16px;
+    background: #ffea00;
+    border-radius: 8px;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6);
+    animation: hoop-sway 2.2s infinite ease-in-out;
+}
+
+.hoop-net {
+    position: absolute;
+    top: 16px;
+    left: 10%;
+    width: 80%;
+    height: 74px;
+    background: repeating-linear-gradient(
+        45deg, #ffffff, #ffffff 6px, transparent 6px, transparent 12px
+    );
+    clip-path: polygon(0 0, 100% 0, 85% 100%, 15% 100%);
+    animation: net-swing 2.2s infinite ease-in-out;
+}
+
+/* Jugadores animados */
+.player-animation {
+    position: absolute;
+    z-index: 1;
+}
+
+.player {
+    position: absolute;
+    width: 60px;
+    height: 100px;
+    background: url('/img/player-silhouette.png') no-repeat center center;
+    background-size: contain;
+    animation: dribble-player 1.5s infinite ease-in-out;
+}
+
+.player-1 { bottom: 10%; left: 10%; }
+.player-2 { bottom: 10%; right: 10%; }
+
+/* Fans animados */
+.crowd-animation {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 25%;
+    z-index: 1;
+}
+
+.crowd-person {
+    position: absolute;
+    width: 40px;
+    height: 60px;
+    background: linear-gradient(#0288d1, #0277bd);
+    border-radius: 8px;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6);
+    animation: cheer 1.3s infinite ease-in-out;
+}
+
+.crowd-person-1 { left: 5%; animation-delay: 0s; }
+.crowd-person-2 { left: 20%; animation-delay: 0.2s; }
+.crowd-person-3 { left: 35%; animation-delay: 0.4s; }
+.crowd-person-4 { left: 50%; animation-delay: 0.6s; }
+.crowd-person-5 { left: 65%; animation-delay: 0.8s; }
+.crowd-person-6 { left: 80%; animation-delay: 1s; }
+
+/* Luces de estadio */
+.spotlight-animation {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.spotlight {
+    position: absolute;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.4), transparent);
+    animation: spotlight-sweep 4s infinite ease-in-out;
+}
+
+.spotlight-1 { width: 350px; height: 350px; top: -15%; left: -15%; animation-delay: 0s; }
+.spotlight-2 { width: 400px; height: 400px; top: -20%; right: -15%; animation-delay: 2s; }
+
+/* Confeti decorativo */
+.confetti-animation {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.confetti {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #ffea00;
+    transform: rotate(45deg);
+    animation: fall-confetti 3s infinite linear;
+}
+
+.confetti-1 { left: 20%; animation-delay: 0s; }
+.confetti-2 { left: 40%; animation-delay: 0.5s; }
+.confetti-3 { left: 60%; animation-delay: 1s; }
+.confetti-4 { left: 80%; animation-delay: 1.5s; }
+
+/* Animaciones */
+@keyframes slam {
+    0%, 100% { transform: translateY(0) scale(1); text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.9), 0 0 25px #ffea00; }
+    50% { transform: translateY(-25px) scale(1.1); text-shadow: 4px 4px 10px rgba(0, 0, 0, 1), 0 0 30px #ffea00; }
+}
+
+@keyframes glow {
+    0% { text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.9), 0 0 25px #ffea00; }
+    100% { text-shadow: 4px 4px 10px rgba(0, 0, 0, 1), 0 0 35px #00e676; }
+}
+
+@keyframes slideIn {
+    0% { opacity: 0; transform: translateY(30px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scoreboardPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7), 0 0 30px rgba(255, 234, 0, 0.5); }
+    50% { transform: scale(1.02); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.8), 0 0 40px rgba(255, 234, 0, 0.7); }
+}
+
+@keyframes pulse-line {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.7; }
+}
+
+@keyframes button-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+}
+
+@keyframes bounce-shot {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    40% { transform: translateY(350px) translateX(80px) rotate(180deg); }
+    60% { transform: translateY(300px) translateX(90px) rotate(270deg); }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes hoop-sway {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    50% { transform: translateX(25px) rotate(4deg); }
+}
+
+@keyframes net-swing {
+    0%, 100% { transform: skewX(0deg) scaleY(1); }
+    50% { transform: skewX(12deg) scaleY(1.15); }
+}
+
+@keyframes dribble-player {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-20px) scale(1.05); }
+}
+
+@keyframes cheer {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-30px) scale(1.1); }
+}
+
+@keyframes spotlight-sweep {
+    0% { transform: translateX(-120px) translateY(-120px) rotate(12deg); }
+    50% { transform: translateX(120px) translateY(120px) rotate(-12deg); }
+    100% { transform: translateX(-120px) translateY(-120px) rotate(12deg); }
+}
+
+@keyframes fall-confetti {
+    0% { transform: translateY(-100vh) rotate(45deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(405deg); opacity: 0; }
+}
+
+/* Responsividad para móviles */
+@media (max-width: 768px) {
+    .credits-container { padding: 10px; }
+    .credits-title { font-size: 2rem; margin-bottom: 20px; margin-top: 60px;}
+    .credits-list { padding: 15px 20px; max-width: 95%; }
+    .credits-item { font-size: 1.3rem; margin: 10px 0; }
+    .back-button { padding: 12px 25px; font-size: 1.2rem; }
+    .basketball-ball { width: 50px; height: 50px; }
+    .ball-1 { top: 5%; left: 5%; }
+    .ball-2 { top: 45%; left: 65%; }
+    .ball-3 { top: 25%; left: 25%; }
+    .hoop-animation { width: 120px; height: 70px; }
+    .hoop-ring { width: 120px; height: 12px; }
+    .hoop-net { top: 12px; height: 58px; }
+    .player { width: 40px; height: 70px; }
+    .crowd-person { width: 30px; height: 45px; }
+    .spotlight-1 { width: 250px; height: 250px; }
+    .spotlight-2 { width: 300px; height: 300px; }
+    .confetti { width: 8px; height: 8px; }
+}
+
+
+/* Contenedor para las tarjetas con grid para mejor control */
+.credits-cards {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr)); /* 4 columnas en PC */
+    gap: 30px;
+    max-width: 1100px;
+    width: 90%;
+    margin: 0 auto 30px;
+    z-index: 2;
+    justify-items: center; /* Centra horizontalmente las tarjetas dentro de sus celdas */
+    justify-content: center; /* Centra el grid en el contenedor */
+    box-sizing: border-box;
+  }
+  
+  /* Tarjeta individual */
+  .credit-card {
+    background: rgba(30, 40, 80, 0.95);
+    border: 3px solid #ffea00;
+    border-radius: 20px;
+    padding: 20px 25px;
+    width: 100%;        /* Para que ocupe todo el ancho de su celda */
+    max-width: 250px;   /* Limita el ancho máximo para evitar que crezca mucho */
+    box-shadow: 0 8px 20px rgba(255, 234, 0, 0.6);
+    color: #fff;
+    font-family: 'Impact', Arial, sans-serif;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    animation: scoreboardPulse 2.5s infinite ease-in-out;
+    cursor: default;
+    box-sizing: border-box;
+    overflow-wrap: break-word; /* Para que el texto no se salga */
+    word-break: break-word;
+  }
+  
+  .credit-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 30px rgba(255, 234, 0, 0.9);
+  }
+  
+  .credit-card h2 {
+    font-size: 1.6rem;
+    margin-bottom: 12px;
+    color: #00e676;
+    text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.8);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+  }
+  
+  .credit-card p {
+    font-size: 1.15rem;
+    font-weight: bold;
+    text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.7);
+    margin: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+  }
+  
+  /* Responsividad: 2 columnas x 2 filas para pantallas menores a 768px */
+  @media (max-width: 768px) {
+    .credits-cards {
+      grid-template-columns: repeat(2, minmax(0, 1fr)); /* 2 columnas */
+      gap: 20px 25px;
+      width: 90%;
+      justify-content: center;
+    }
+    .credit-card {
+      max-width: 160px; /* Tamaño más pequeño en móvil */
+      padding: 15px 20px;
+    }
+    .credit-card h2 {
+      font-size: 1.3rem;
+    }
+    .credit-card p {
+      font-size: 1rem;
+    }
+    .back-button {
+      padding: 12px 25px;
+      font-size: 1.2rem;
+    }
+    
+  }
+  
