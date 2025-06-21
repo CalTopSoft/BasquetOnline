@@ -450,10 +450,11 @@ input {
 
 .player-name {
     position: absolute;
-    top: -5px;
+    top: -6px;
     font-family: 'Bangers', cursive;
     font-size: 20px;
     color: #fff200;
+    text-align: center;
     background: #ff3c3c;
     padding: 4px 7px;
     border: 3px solid #000;
@@ -538,7 +539,7 @@ input {
 
     .score-player {
         font-size: 28px;
-        padding: 6px 15px;
+        padding: 6px 17px;
         border: 4px solid #000;
         position: absolute; /* Posicionamiento individual */
     }
@@ -555,13 +556,13 @@ input {
         transform: translateX(0); /* Sin desplazamiento adicional */
     }
     .timer.player1-timer {
-        top: 38px;
+        top: 42px;
         left: 110px;
     }
     
     /* Barra de tiempo para jugador 2 */
     .timer.player2-timer {
-        top: 38px;
+        top: 43px;
         right: 110px;
     }
     .player-name, .round, .score-player {
