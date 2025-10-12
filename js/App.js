@@ -15,7 +15,7 @@ const App = () => {
   const turnRef = useRef(0);
   const countdownRef = useRef(0);
   const rankingsRef = useRef([]);
-  const roomStatusRef = useRef({ room1: { players: 0 }, room2: { players: 0 } });
+  const roomStatusRef = useRef({ room1: { players: 0 }, room2: { players: 0 }, room3: { players: 0 } });
   const playerIndexRef = useRef(null);
   const wsRef = useRef(null);
   const lastBallStateRef = useRef(null);
