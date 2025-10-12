@@ -36,14 +36,14 @@ const Gameplay = ({
                 
                 if (frameCount === 60) {
                     const elapsed = currentTime - lastTime;
-                    refreshRate = Math.round((60000 / elapsed) * 10) / 10; // Aproximado
+                    refreshRate = Math.round((60000 / elapsed) * 10) / 10;
                     
                     // Normalizar a valores comunes
                     if (refreshRate >= 110) refreshRate = 120;
                     else if (refreshRate >= 85) refreshRate = 90;
                     else refreshRate = 60;
                     
-                    console.log(`📱 Refresh rate detectado: ${refreshRate}hz`);
+                    console.log('Refresh rate detectado: ' + refreshRate + 'hz');
                     resolve(refreshRate);
                     return;
                 }
@@ -84,11 +84,10 @@ const Gameplay = ({
 
         p.setup = () => {
             p.createCanvas(600, 490);
-            // ✅ ADAPTABLE AL REFRESH RATE
             p.frameRate(targetFrameRate);
             p.textAlign(p.CENTER, p.CENTER);
             p.textStyle(p.BOLD);
-            console.log(`🎮 p5.js frameRate establecido a: ${targetFrameRate}fps`);
+            console.log('p5.js frameRate establecido a: ' + targetFrameRate + 'fps');
         };
 
         p.draw = () => {
@@ -107,7 +106,6 @@ const Gameplay = ({
 
             // ============ RENDERIZADO OPTIMIZADO ============
             if (ballImg && hoopBaseImg && hoopRingImg) {
-                // Dibujar base del aro
                 p.image(
                     hoopBaseImg, 
                     hoopXRef.current - hoopBaseWidth / 1.98, 
@@ -116,7 +114,6 @@ const Gameplay = ({
                     hoopBaseHeight
                 );
                 
-                // Escala de la pelota (perspectiva)
                 ballScale = p.map(ballRef.current.y, 405, 113, 1, 0.8);
                 ballScale = p.constrain(ballScale, 0.8, 1);
 
@@ -134,7 +131,6 @@ const Gameplay = ({
                     p.pop();
                 };
 
-                // Z-ordering: Pelota adelante o atrás del aro según posición Y
                 if (ballRef.current.vy > 0) {
                     drawRotatedBall();
                     p.image(
@@ -155,7 +151,6 @@ const Gameplay = ({
                     drawRotatedBall();
                 }
             } else {
-                // Fallback: Modo debug sin imágenes
                 p.fill(255, 165, 0);
                 p.ellipse(ballRef.current.x, ballRef.current.y, ballRef.current.r * 2 * ballScale);
                 
@@ -164,7 +159,7 @@ const Gameplay = ({
                 
                 p.fill(255);
                 p.textSize(12);
-                p.text("Imágenes no cargadas - modo debug", 10, 20);
+                p.text("Imagenes no cargadas - modo debug", 10, 20);
             }
 
             // ============ ANIMACIÓN DE ENCESTE ============
@@ -182,18 +177,11 @@ const Gameplay = ({
                     p.strokeWeight(2);
                     p.translate(p.width / 2, p.height / 2);
                     p.scale(scale);
-                    p.text("¡Encestaste!", 0, 0);
+                    p.text("Encestaste!", 0, 0);
                     p.pop();
                 } else {
                     scoreAnimation.current.show = false;
                 }
-            }
-
-            // ============ DEBUG FPS ============
-            if (false) { // Cambiar a true para ver FPS
-                p.fill(0);
-                p.textSize(12);
-                p.text(`FPS: ${p.frameRate().toFixed(1)}`, 30, 20);
             }
         };
 
@@ -257,16 +245,13 @@ const Gameplay = ({
     useEffect(() => {
         // ============ INICIALIZACIÓN ============
         const initGame = async () => {
-            // 1. Detectar refresh rate del dispositivo
             const detectedRate = await detectRefreshRate();
             refreshRateRef.current = detectedRate;
 
-            // 2. Crear instancia de p5 con el refresh rate detectado
             if (!isMounted.current && sketchRef.current && gameStarted) {
                 p5Instance.current = new window.p5(setupSketch, sketchRef.current);
                 isMounted.current = true;
 
-                // 3. Enviar info del dispositivo al servidor
                 setTimeout(() => {
                     sendDeviceInfo(playerIndexRef.current, detectedRate);
                 }, 500);
@@ -282,10 +267,9 @@ const Gameplay = ({
             try {
                 const data = JSON.parse(event.data);
                 
-                if (['update', 'newRound', 'score', 'start', 'joined', 'confetti', 'bounce', 'hoopHit'].includes(data.type)) {
-                    // Actualizar referencias de forma eficiente
+                if (['update', 'newRound', 'score', 'start', 'joined', 'confetti', 'bounce', 'hoopHit'].indexOf(data.type) !== -1) {
                     if (data.ball) {
-                        ballRef.current = { ...ballRef.current, ...data.ball };
+                        ballRef.current = Object.assign({}, ballRef.current, data.ball);
                         if (!ballRef.current.r) ballRef.current.r = 30;
                     }
                     if (data.hoopX !== undefined) hoopXRef.current = data.hoopX;
@@ -298,12 +282,10 @@ const Gameplay = ({
                     if (data.players) playersRef.current = data.players;
                     if (data.playerIndex !== undefined) playerIndexRef.current = data.playerIndex;
 
-                    // Reiniciar animación en nueva ronda
                     if (data.type === 'newRound') {
                         scoreAnimation.current = { show: false, startTime: 0 };
                     }
 
-                    // ✅ Mostrar texto solo para el jugador que encestó
                     if (data.type === 'score' && data.player === playerIndexRef.current) {
                         scoreAnimation.current = { 
                             show: true, 
@@ -311,7 +293,6 @@ const Gameplay = ({
                         };
                     }
 
-                    // ✅ Confeti para ambos jugadores cuando alguien encesta
                     if (data.type === 'confetti' && window.confetti) {
                         const originX = data.player === 0 ? 0.2 : 0.8;
                         window.confetti({
@@ -345,56 +326,42 @@ const Gameplay = ({
         };
     }, [gameStarted]);
 
-    return (
-        <div className={`gameplay ${gameStarted ? 'in-game' : 'waiting'}`}>
-            <div className="game-container">
-                <div ref={sketchRef}></div>
-                
-                {/* Scores */}
-                <div className="score-container">
-                    <div className="score-player player1-score">{scoresRef.current[0]}</div>
-                    <div className="score-player player2-score">{scoresRef.current[1]}</div>
-                </div>
-                
-                {/* Game Info */}
-                <div className="turn">Turno: {playersRef.current[turnRef.current] || 'Esperando...'}</div>
-                <div className="round">Ronda {roundRef.current}/3</div>
-                
-                {/* Player 1 */}
-                {playersRef.current[0] && (
-                    <>
-                        <div className="player-icon player1">
-                            <img src={playerIconsRef.current[0]} alt="Player 1" />
-                        </div>
-                        <div className="player-name player1-name">{playersRef.current[0]}</div>
-                    </>
-                )}
-                
-                {/* Player 2 */}
-                {playersRef.current[1] && (
-                    <>
-                        <div className="player-icon player2">
-                            <img src={playerIconsRef.current[1]} alt="Player 2" />
-                        </div>
-                        <div className="player-name player2-name">{playersRef.current[1]}</div>
-                    </>
-                )}
-                
-                {/* Timers */}
-                {gameStarted && (
-                    <>
-                        <div className={`timer player1-timer ${turnRef.current === 0 ? 'active' : ''}`}>
-                            <div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div>
-                        </div>
-                        <div className={`timer player2-timer ${turnRef.current === 1 ? 'active' : ''}`}>
-                            <div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div>
-                        </div>
-                    </>
-                )}
-                
-                {/* Waiting Message */}
-                {!gameStarted && <div className="waiting-message">Esperando al segundo jugador...</div>}
-            </div>
-        </div>
+    return React.createElement('div', { className: 'gameplay ' + (gameStarted ? 'in-game' : 'waiting') },
+        React.createElement('div', { className: 'game-container' },
+            React.createElement('div', { ref: sketchRef }),
+            
+            React.createElement('div', { className: 'score-container' },
+                React.createElement('div', { className: 'score-player player1-score' }, scoresRef.current[0]),
+                React.createElement('div', { className: 'score-player player2-score' }, scoresRef.current[1])
+            ),
+            
+            React.createElement('div', { className: 'turn' }, 'Turno: ' + (playersRef.current[turnRef.current] || 'Esperando...')),
+            React.createElement('div', { className: 'round' }, 'Ronda ' + roundRef.current + '/3'),
+            
+            playersRef.current[0] ? React.createElement(React.Fragment, null,
+                React.createElement('div', { className: 'player-icon player1' },
+                    React.createElement('img', { src: playerIconsRef.current[0], alt: 'Player 1' })
+                ),
+                React.createElement('div', { className: 'player-name player1-name' }, playersRef.current[0])
+            ) : null,
+            
+            playersRef.current[1] ? React.createElement(React.Fragment, null,
+                React.createElement('div', { className: 'player-icon player2' },
+                    React.createElement('img', { src: playerIconsRef.current[1], alt: 'Player 2' })
+                ),
+                React.createElement('div', { className: 'player-name player2-name' }, playersRef.current[1])
+            ) : null,
+            
+            gameStarted ? React.createElement(React.Fragment, null,
+                React.createElement('div', { className: 'timer player1-timer ' + (turnRef.current === 0 ? 'active' : '') },
+                    React.createElement('div', { className: 'timer-bar', style: { width: (timerRef.current * 12.5) + '%' } })
+                ),
+                React.createElement('div', { className: 'timer player2-timer ' + (turnRef.current === 1 ? 'active' : '') },
+                    React.createElement('div', { className: 'timer-bar', style: { width: (timerRef.current * 12.5) + '%' } })
+                )
+            ) : null,
+            
+            !gameStarted ? React.createElement('div', { className: 'waiting-message' }, 'Esperando al segundo jugador...') : null
+        )
     );
 };
