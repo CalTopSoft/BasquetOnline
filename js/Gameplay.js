@@ -37,7 +37,7 @@ const Gameplay = ({
 
         p.setup = () => {
             p.createCanvas(600, 490);
-            p.frameRate(90);
+            p.frameRate(62);
         };
 
         p.draw = () => {
