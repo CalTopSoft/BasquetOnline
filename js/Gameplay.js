@@ -65,6 +65,7 @@ const Gameplay = ({
                 refreshRate: refreshRate
             }));
             deviceInfoSentRef.current = true;
+            console.log('Device info enviada: ' + refreshRate + 'hz');
         }
     };
 
@@ -84,10 +85,11 @@ const Gameplay = ({
 
         p.setup = () => {
             p.createCanvas(600, 490);
+            // CAMBIO 1: FrameRate adaptable
             p.frameRate(targetFrameRate);
             p.textAlign(p.CENTER, p.CENTER);
             p.textStyle(p.BOLD);
-            console.log('p5.js frameRate establecido a: ' + targetFrameRate + 'fps');
+            console.log('p5.js frameRate: ' + targetFrameRate + 'fps');
         };
 
         p.draw = () => {
@@ -104,15 +106,8 @@ const Gameplay = ({
             const hoopRingWidth = 75;
             const hoopRingHeight = hoopRingWidth * (499 / 788);
 
-            // ============ RENDERIZADO OPTIMIZADO ============
             if (ballImg && hoopBaseImg && hoopRingImg) {
-                p.image(
-                    hoopBaseImg, 
-                    hoopXRef.current - hoopBaseWidth / 1.98, 
-                    40, 
-                    hoopBaseWidth, 
-                    hoopBaseHeight
-                );
+                p.image(hoopBaseImg, hoopXRef.current - hoopBaseWidth / 1.98, 40, hoopBaseWidth, hoopBaseHeight);
                 
                 ballScale = p.map(ballRef.current.y, 405, 113, 1, 0.8);
                 ballScale = p.constrain(ballScale, 0.8, 1);
@@ -133,21 +128,9 @@ const Gameplay = ({
 
                 if (ballRef.current.vy > 0) {
                     drawRotatedBall();
-                    p.image(
-                        hoopRingImg, 
-                        hoopXRef.current - hoopRingWidth / 2.2, 
-                        113, 
-                        hoopRingWidth, 
-                        hoopRingHeight
-                    );
+                    p.image(hoopRingImg, hoopXRef.current - hoopRingWidth / 2.2, 113, hoopRingWidth, hoopRingHeight);
                 } else {
-                    p.image(
-                        hoopRingImg, 
-                        hoopXRef.current - hoopRingWidth / 2.2, 
-                        113, 
-                        hoopRingWidth, 
-                        hoopRingHeight
-                    );
+                    p.image(hoopRingImg, hoopXRef.current - hoopRingWidth / 2.2, 113, hoopRingWidth, hoopRingHeight);
                     drawRotatedBall();
                 }
             } else {
@@ -158,18 +141,16 @@ const Gameplay = ({
                 p.rect(hoopXRef.current - 37.5, 113, 75, 20);
                 
                 p.fill(255);
-                p.textSize(12);
                 p.text("Imagenes no cargadas - modo debug", 10, 20);
             }
 
-            // ============ ANIMACIÓN DE ENCESTE ============
+            // Dibujar texto animado "Encestaste!"
             if (scoreAnimation.current.show) {
                 const elapsed = p.millis() - scoreAnimation.current.startTime;
                 if (elapsed < 2000) {
                     const alpha = p.map(elapsed, 0, 2000, 255, 0);
                     const scale = p.map(elapsed, 0, 1000, 1, 1.2) * p.map(elapsed, 1000, 2000, 1.2, 0.8);
                     const textSize = p.width < 400 ? 24 : 32;
-                    
                     p.push();
                     p.textSize(textSize);
                     p.fill(255, 215, 0, alpha);
@@ -185,7 +166,6 @@ const Gameplay = ({
             }
         };
 
-        // ============ INPUT: ARRASTRAR PELOTA ============
         p.mousePressed = () => {
             if (
                 gameStarted &&
@@ -243,7 +223,7 @@ const Gameplay = ({
     };
 
     useEffect(() => {
-        // ============ INICIALIZACIÓN ============
+        // CAMBIO 2: Detectar FPS al iniciar
         const initGame = async () => {
             const detectedRate = await detectRefreshRate();
             refreshRateRef.current = detectedRate;
@@ -262,51 +242,49 @@ const Gameplay = ({
             initGame();
         }
 
-        // ============ WEBSOCKET MESSAGE HANDLER ============
         const handleMessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                
-                if (['update', 'newRound', 'score', 'start', 'joined', 'confetti', 'bounce', 'hoopHit'].indexOf(data.type) !== -1) {
-                    if (data.ball) {
-                        ballRef.current = Object.assign({}, ballRef.current, data.ball);
-                        if (!ballRef.current.r) ballRef.current.r = 30;
-                    }
-                    if (data.hoopX !== undefined) hoopXRef.current = data.hoopX;
-                    if (data.timer !== undefined) timerRef.current = data.timer;
-                    if (data.attempts) attemptsRef.current = data.attempts;
-                    if (data.playerIcons) playerIconsRef.current = data.playerIcons;
-                    if (data.scores) scoresRef.current = data.scores;
-                    if (data.turn !== undefined) turnRef.current = data.turn;
-                    if (data.round !== undefined) roundRef.current = data.round;
-                    if (data.players) playersRef.current = data.players;
-                    if (data.playerIndex !== undefined) playerIndexRef.current = data.playerIndex;
-
-                    if (data.type === 'newRound') {
-                        scoreAnimation.current = { show: false, startTime: 0 };
-                    }
-
-                    if (data.type === 'score' && data.player === playerIndexRef.current) {
-                        scoreAnimation.current = { 
-                            show: true, 
-                            startTime: p5Instance.current ? p5Instance.current.millis() : Date.now() 
-                        };
-                    }
-
-                    if (data.type === 'confetti' && window.confetti) {
-                        const originX = data.player === 0 ? 0.2 : 0.8;
-                        window.confetti({
-                            particleCount: 100,
-                            spread: 70,
-                            origin: { x: originX, y: 0.6 },
-                            colors: ['#FFD700', '#FF4500', '#00FF00'],
-                        });
-                    }
-                    
-                    setForceUpdate((prev) => prev + 1);
+            const data = JSON.parse(event.data);
+            
+            if (['update', 'newRound', 'scoreUpdate', 'start', 'joined', 'confetti'].includes(data.type)) {
+                if (data.ball) {
+                    ballRef.current = Object.assign({}, ballRef.current, data.ball);
+                    if (!ballRef.current.r) ballRef.current.r = 30;
                 }
-            } catch (e) {
-                console.error('Error parsing WebSocket message:', e);
+                if (data.hoopX !== undefined) hoopXRef.current = data.hoopX;
+                if (data.timer !== undefined) timerRef.current = data.timer;
+                if (data.attempts) attemptsRef.current = data.attempts;
+                if (data.playerIcons) playerIconsRef.current = data.playerIcons;
+                if (data.scores) scoresRef.current = data.scores;
+                if (data.turn !== undefined) turnRef.current = data.turn;
+                if (data.round !== undefined) roundRef.current = data.round;
+                if (data.players) playersRef.current = data.players;
+                if (data.playerIndex !== undefined) playerIndexRef.current = data.playerIndex;
+
+                // Reiniciar animación en nueva ronda
+                if (data.type === 'newRound') {
+                    scoreAnimation.current = { show: false, startTime: 0 };
+                }
+
+                // Mostrar texto solo para el jugador que encestó
+                if (data.type === 'scoreUpdate' && data.scoringPlayer === playerIndexRef.current) {
+                    scoreAnimation.current = { 
+                        show: true, 
+                        startTime: p5Instance.current ? p5Instance.current.millis() : Date.now() 
+                    };
+                }
+
+                // Confeti para ambos jugadores
+                if (data.type === 'confetti' && window.confetti) {
+                    const originX = data.scoringPlayer === 0 ? 0 : 1;
+                    window.confetti({
+                        particleCount: 100,
+                        spread: 70,
+                        origin: { x: originX, y: 0.6 },
+                        colors: ['#FFD700', '#FF4500', '#00FF00'],
+                    });
+                }
+                
+                setForceUpdate((prev) => prev + 1);
             }
         };
 
@@ -329,30 +307,25 @@ const Gameplay = ({
     return React.createElement('div', { className: 'gameplay ' + (gameStarted ? 'in-game' : 'waiting') },
         React.createElement('div', { className: 'game-container' },
             React.createElement('div', { ref: sketchRef }),
-            
             React.createElement('div', { className: 'score-container' },
                 React.createElement('div', { className: 'score-player player1-score' }, scoresRef.current[0]),
                 React.createElement('div', { className: 'score-player player2-score' }, scoresRef.current[1])
             ),
-            
             React.createElement('div', { className: 'turn' }, 'Turno: ' + (playersRef.current[turnRef.current] || 'Esperando...')),
             React.createElement('div', { className: 'round' }, 'Ronda ' + roundRef.current + '/3'),
-            
-            playersRef.current[0] ? React.createElement(React.Fragment, null,
+            playersRef.current[0] ? React.createElement('div', null,
                 React.createElement('div', { className: 'player-icon player1' },
                     React.createElement('img', { src: playerIconsRef.current[0], alt: 'Player 1' })
                 ),
                 React.createElement('div', { className: 'player-name player1-name' }, playersRef.current[0])
             ) : null,
-            
-            playersRef.current[1] ? React.createElement(React.Fragment, null,
+            playersRef.current[1] ? React.createElement('div', null,
                 React.createElement('div', { className: 'player-icon player2' },
                     React.createElement('img', { src: playerIconsRef.current[1], alt: 'Player 2' })
                 ),
                 React.createElement('div', { className: 'player-name player2-name' }, playersRef.current[1])
             ) : null,
-            
-            gameStarted ? React.createElement(React.Fragment, null,
+            gameStarted ? React.createElement('div', null,
                 React.createElement('div', { className: 'timer player1-timer ' + (turnRef.current === 0 ? 'active' : '') },
                     React.createElement('div', { className: 'timer-bar', style: { width: (timerRef.current * 12.5) + '%' } })
                 ),
@@ -360,7 +333,6 @@ const Gameplay = ({
                     React.createElement('div', { className: 'timer-bar', style: { width: (timerRef.current * 12.5) + '%' } })
                 )
             ) : null,
-            
             !gameStarted ? React.createElement('div', { className: 'waiting-message' }, 'Esperando al segundo jugador...') : null
         )
     );
