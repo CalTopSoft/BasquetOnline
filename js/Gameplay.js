@@ -37,10 +37,7 @@ const Gameplay = ({
 
         p.setup = () => {
             p.createCanvas(600, 490);
-            // Detectar FPS basado en tamaño de pantalla
-            const frameRate = window.innerWidth > 1000 ? 120 : window.innerHeight > 800 ? 90 : 60;
-            p.frameRate(frameRate);
-            console.log('FPS detectado: ' + frameRate);
+            p.frameRate(90);
             p.textAlign(p.CENTER, p.CENTER);
             p.textStyle(p.BOLD);
         };
@@ -186,7 +183,7 @@ const Gameplay = ({
             
             if (['update', 'newRound', 'scoreUpdate', 'start', 'joined', 'confetti'].includes(data.type)) {
                 if (data.ball) {
-                    ballRef.current = Object.assign({}, ballRef.current, data.ball);
+                    ballRef.current = { ...ballRef.current, ...data.ball };
                     if (!ballRef.current.r) ballRef.current.r = 30;
                 }
                 if (data.hoopX !== undefined) hoopXRef.current = data.hoopX;
@@ -244,37 +241,43 @@ const Gameplay = ({
     }, [gameStarted]);
 
     return (
-        React.createElement('div', { className: 'gameplay ' + (gameStarted ? 'in-game' : 'waiting') },
-            React.createElement('div', { className: 'game-container' },
-                React.createElement('div', { ref: sketchRef }),
-                React.createElement('div', { className: 'score-container' },
-                    React.createElement('div', { className: 'score-player player1-score' }, scoresRef.current[0] || 0),
-                    React.createElement('div', { className: 'score-player player2-score' }, scoresRef.current[1] || 0)
-                ),
-                React.createElement('div', { className: 'turn' }, 'Turno: ' + (playersRef.current[turnRef.current] || 'Esperando...')),
-                React.createElement('div', { className: 'round' }, 'Ronda ' + roundRef.current + '/3'),
-                playersRef.current[0] ? React.createElement('div', null,
-                    React.createElement('div', { className: 'player-icon player1' },
-                        React.createElement('img', { src: playerIconsRef.current[0], alt: 'Player 1' })
-                    ),
-                    React.createElement('div', { className: 'player-name player1-name' }, playersRef.current[0])
-                ) : null,
-                playersRef.current[1] ? React.createElement('div', null,
-                    React.createElement('div', { className: 'player-icon player2' },
-                        React.createElement('img', { src: playerIconsRef.current[1], alt: 'Player 2' })
-                    ),
-                    React.createElement('div', { className: 'player-name player2-name' }, playersRef.current[1])
-                ) : null,
-                gameStarted ? React.createElement('div', null,
-                    React.createElement('div', { className: 'timer player1-timer ' + (turnRef.current === 0 ? 'active' : '') },
-                        React.createElement('div', { className: 'timer-bar', style: { width: ((timerRef.current || 0) * 12.5) + '%' } })
-                    ),
-                    React.createElement('div', { className: 'timer player2-timer ' + (turnRef.current === 1 ? 'active' : '') },
-                        React.createElement('div', { className: 'timer-bar', style: { width: ((timerRef.current || 0) * 12.5) + '%' } })
-                    )
-                ) : null,
-                !gameStarted ? React.createElement('div', { className: 'waiting-message' }, 'Esperando al segundo jugador...') : null
-            )
-        )
+        <div className={`gameplay ${gameStarted ? 'in-game' : 'waiting'}`}>
+            <div className="game-container">
+                <div ref={sketchRef}></div>
+                <div className="score-container">
+                    <div className="score-player player1-score">{scoresRef.current[0]}</div>
+                    <div className="score-player player2-score">{scoresRef.current[1]}</div>
+                </div>
+                <div className="turn">Turno: {playersRef.current[turnRef.current] || 'Esperando...'}</div>
+                <div className="round">Ronda {roundRef.current}/3</div>
+                {playersRef.current[0] && (
+                    <React.Fragment>
+                        <div className="player-icon player1">
+                            <img src={playerIconsRef.current[0]} alt="Player 1" />
+                        </div>
+                        <div className="player-name player1-name">{playersRef.current[0]}</div>
+                    </React.Fragment>
+                )}
+                {playersRef.current[1] && (
+                    <React.Fragment>
+                        <div className="player-icon player2">
+                            <img src={playerIconsRef.current[1]} alt="Player 2" />
+                        </div>
+                        <div className="player-name player2-name">{playersRef.current[1]}</div>
+                    </React.Fragment>
+                )}
+                {gameStarted && (
+                    <React.Fragment>
+                        <div className={`timer player1-timer ${turnRef.current === 0 ? 'active' : ''}`}>
+                            <div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div>
+                        </div>
+                        <div className={`timer player2-timer ${turnRef.current === 1 ? 'active' : ''}`}>
+                            <div className="timer-bar" style={{ width: `${timerRef.current * 12.5}%` }}></div>
+                        </div>
+                    </React.Fragment>
+                )}
+                {!gameStarted && <div className="waiting-message">Esperando al segundo jugador...</div>}
+            </div>
+        </div>
     );
 };
