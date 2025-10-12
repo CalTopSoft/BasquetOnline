@@ -21,60 +21,12 @@ const Gameplay = ({
     const p5Instance = useRef(null);
     const isMounted = useRef(false);
     const scoreAnimation = useRef({ show: false, startTime: 0 });
-    const refreshRateRef = useRef(60);
-    const deviceInfoSentRef = useRef(false);
-
-    // ============ DETECTAR REFRESH RATE ============
-    const detectRefreshRate = async () => {
-        return new Promise((resolve) => {
-            let lastTime = performance.now();
-            let frameCount = 0;
-            let refreshRate = 60;
-
-            const checkFrame = (currentTime) => {
-                frameCount++;
-                
-                if (frameCount === 60) {
-                    const elapsed = currentTime - lastTime;
-                    refreshRate = Math.round((60000 / elapsed) * 10) / 10;
-                    
-                    // Normalizar a valores comunes
-                    if (refreshRate >= 110) refreshRate = 120;
-                    else if (refreshRate >= 85) refreshRate = 90;
-                    else refreshRate = 60;
-                    
-                    console.log('Refresh rate detectado: ' + refreshRate + 'hz');
-                    resolve(refreshRate);
-                    return;
-                }
-                
-                requestAnimationFrame(checkFrame);
-            };
-            
-            requestAnimationFrame(checkFrame);
-        });
-    };
-
-    // ============ ENVIAR INFO DEL DISPOSITIVO AL SERVIDOR ============
-    const sendDeviceInfo = (playerIndex, refreshRate) => {
-        if (wsRef.current && wsRef.current.readyState === 1 && !deviceInfoSentRef.current) {
-            wsRef.current.send(JSON.stringify({
-                type: 'deviceInfo',
-                room: currentRoom || 'room1',
-                playerIndex: playerIndex,
-                refreshRate: refreshRate
-            }));
-            deviceInfoSentRef.current = true;
-            console.log('Device info enviada: ' + refreshRate + 'hz');
-        }
-    };
 
     const setupSketch = (p) => {
         let ballImg, hoopBaseImg, hoopRingImg;
         let dragging = false;
         let dragStartX, dragStartY;
         let ballScale = 1;
-        let targetFrameRate = refreshRateRef.current;
 
         p.preload = () => {
             ballImg = p.loadImage('img/balon/ball.png');
@@ -85,11 +37,12 @@ const Gameplay = ({
 
         p.setup = () => {
             p.createCanvas(600, 490);
-            // CAMBIO 1: FrameRate adaptable
-            p.frameRate(targetFrameRate);
+            // Detectar FPS basado en tamaño de pantalla
+            const frameRate = window.innerWidth > 1000 ? 120 : window.innerHeight > 800 ? 90 : 60;
+            p.frameRate(frameRate);
+            console.log('FPS detectado: ' + frameRate);
             p.textAlign(p.CENTER, p.CENTER);
             p.textStyle(p.BOLD);
-            console.log('p5.js frameRate: ' + targetFrameRate + 'fps');
         };
 
         p.draw = () => {
@@ -141,10 +94,10 @@ const Gameplay = ({
                 p.rect(hoopXRef.current - 37.5, 113, 75, 20);
                 
                 p.fill(255);
-                p.text("Imagenes no cargadas - modo debug", 10, 20);
+                p.text("Imágenes no cargadas - modo debug", 10, 20);
             }
 
-            // Dibujar texto animado "Encestaste!"
+            // Dibujar texto animado "¡Encestaste!" solo para el jugador que encesta
             if (scoreAnimation.current.show) {
                 const elapsed = p.millis() - scoreAnimation.current.startTime;
                 if (elapsed < 2000) {
@@ -158,7 +111,7 @@ const Gameplay = ({
                     p.strokeWeight(2);
                     p.translate(p.width / 2, p.height / 2);
                     p.scale(scale);
-                    p.text("Encestaste!", 0, 0);
+                    p.text("¡Encestaste!", 0, 0);
                     p.pop();
                 } else {
                     scoreAnimation.current.show = false;
@@ -223,23 +176,9 @@ const Gameplay = ({
     };
 
     useEffect(() => {
-        // CAMBIO 2: Detectar FPS al iniciar
-        const initGame = async () => {
-            const detectedRate = await detectRefreshRate();
-            refreshRateRef.current = detectedRate;
-
-            if (!isMounted.current && sketchRef.current && gameStarted) {
-                p5Instance.current = new window.p5(setupSketch, sketchRef.current);
-                isMounted.current = true;
-
-                setTimeout(() => {
-                    sendDeviceInfo(playerIndexRef.current, detectedRate);
-                }, 500);
-            }
-        };
-
-        if (gameStarted) {
-            initGame();
+        if (!isMounted.current && sketchRef.current && gameStarted) {
+            p5Instance.current = new window.p5(setupSketch, sketchRef.current);
+            isMounted.current = true;
         }
 
         const handleMessage = (event) => {
@@ -265,7 +204,7 @@ const Gameplay = ({
                     scoreAnimation.current = { show: false, startTime: 0 };
                 }
 
-                // Mostrar texto solo para el jugador que encestó
+                // CORREGIDO: Mostrar texto solo para el jugador que encestó
                 if (data.type === 'scoreUpdate' && data.scoringPlayer === playerIndexRef.current) {
                     scoreAnimation.current = { 
                         show: true, 
@@ -273,7 +212,7 @@ const Gameplay = ({
                     };
                 }
 
-                // Confeti para ambos jugadores
+                // CORREGIDO: Confeti para ambos jugadores cuando alguien encesta
                 if (data.type === 'confetti' && window.confetti) {
                     const originX = data.scoringPlayer === 0 ? 0 : 1;
                     window.confetti({
@@ -304,36 +243,38 @@ const Gameplay = ({
         };
     }, [gameStarted]);
 
-    return React.createElement('div', { className: 'gameplay ' + (gameStarted ? 'in-game' : 'waiting') },
-        React.createElement('div', { className: 'game-container' },
-            React.createElement('div', { ref: sketchRef }),
-            React.createElement('div', { className: 'score-container' },
-                React.createElement('div', { className: 'score-player player1-score' }, scoresRef.current[0]),
-                React.createElement('div', { className: 'score-player player2-score' }, scoresRef.current[1])
-            ),
-            React.createElement('div', { className: 'turn' }, 'Turno: ' + (playersRef.current[turnRef.current] || 'Esperando...')),
-            React.createElement('div', { className: 'round' }, 'Ronda ' + roundRef.current + '/3'),
-            playersRef.current[0] ? React.createElement('div', null,
-                React.createElement('div', { className: 'player-icon player1' },
-                    React.createElement('img', { src: playerIconsRef.current[0], alt: 'Player 1' })
+    return (
+        React.createElement('div', { className: 'gameplay ' + (gameStarted ? 'in-game' : 'waiting') },
+            React.createElement('div', { className: 'game-container' },
+                React.createElement('div', { ref: sketchRef }),
+                React.createElement('div', { className: 'score-container' },
+                    React.createElement('div', { className: 'score-player player1-score' }, scoresRef.current[0] || 0),
+                    React.createElement('div', { className: 'score-player player2-score' }, scoresRef.current[1] || 0)
                 ),
-                React.createElement('div', { className: 'player-name player1-name' }, playersRef.current[0])
-            ) : null,
-            playersRef.current[1] ? React.createElement('div', null,
-                React.createElement('div', { className: 'player-icon player2' },
-                    React.createElement('img', { src: playerIconsRef.current[1], alt: 'Player 2' })
-                ),
-                React.createElement('div', { className: 'player-name player2-name' }, playersRef.current[1])
-            ) : null,
-            gameStarted ? React.createElement('div', null,
-                React.createElement('div', { className: 'timer player1-timer ' + (turnRef.current === 0 ? 'active' : '') },
-                    React.createElement('div', { className: 'timer-bar', style: { width: (timerRef.current * 12.5) + '%' } })
-                ),
-                React.createElement('div', { className: 'timer player2-timer ' + (turnRef.current === 1 ? 'active' : '') },
-                    React.createElement('div', { className: 'timer-bar', style: { width: (timerRef.current * 12.5) + '%' } })
-                )
-            ) : null,
-            !gameStarted ? React.createElement('div', { className: 'waiting-message' }, 'Esperando al segundo jugador...') : null
+                React.createElement('div', { className: 'turn' }, 'Turno: ' + (playersRef.current[turnRef.current] || 'Esperando...')),
+                React.createElement('div', { className: 'round' }, 'Ronda ' + roundRef.current + '/3'),
+                playersRef.current[0] ? React.createElement('div', null,
+                    React.createElement('div', { className: 'player-icon player1' },
+                        React.createElement('img', { src: playerIconsRef.current[0], alt: 'Player 1' })
+                    ),
+                    React.createElement('div', { className: 'player-name player1-name' }, playersRef.current[0])
+                ) : null,
+                playersRef.current[1] ? React.createElement('div', null,
+                    React.createElement('div', { className: 'player-icon player2' },
+                        React.createElement('img', { src: playerIconsRef.current[1], alt: 'Player 2' })
+                    ),
+                    React.createElement('div', { className: 'player-name player2-name' }, playersRef.current[1])
+                ) : null,
+                gameStarted ? React.createElement('div', null,
+                    React.createElement('div', { className: 'timer player1-timer ' + (turnRef.current === 0 ? 'active' : '') },
+                        React.createElement('div', { className: 'timer-bar', style: { width: ((timerRef.current || 0) * 12.5) + '%' } })
+                    ),
+                    React.createElement('div', { className: 'timer player2-timer ' + (turnRef.current === 1 ? 'active' : '') },
+                        React.createElement('div', { className: 'timer-bar', style: { width: ((timerRef.current || 0) * 12.5) + '%' } })
+                    )
+                ) : null,
+                !gameStarted ? React.createElement('div', { className: 'waiting-message' }, 'Esperando al segundo jugador...') : null
+            )
         )
     );
 };
