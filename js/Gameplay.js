@@ -20,7 +20,7 @@ const Gameplay = ({
     const sketchRef = useRef(null);
     const p5Instance = useRef(null);
     const isMounted = useRef(false);
-    const updateCounterRef = useRef(0);
+    const scoreAnimation = useRef({ show: false, startTime: 0 });
 
     const setupSketch = (p) => {
         let ballImg, hoopBaseImg, hoopRingImg;
@@ -38,6 +38,8 @@ const Gameplay = ({
         p.setup = () => {
             p.createCanvas(600, 490);
             p.frameRate(62);
+            p.textAlign(p.CENTER, p.CENTER);
+            p.textStyle(p.BOLD);
         };
 
         p.draw = () => {
@@ -90,6 +92,27 @@ const Gameplay = ({
                 
                 p.fill(255);
                 p.text("Imágenes no cargadas - modo debug", 10, 20);
+            }
+
+            // Dibujar texto animado "¡Encestaste!" solo para el jugador que encesta
+            if (scoreAnimation.current.show) {
+                const elapsed = p.millis() - scoreAnimation.current.startTime;
+                if (elapsed < 2000) {
+                    const alpha = p.map(elapsed, 0, 2000, 255, 0);
+                    const scale = p.map(elapsed, 0, 1000, 1, 1.2) * p.map(elapsed, 1000, 2000, 1.2, 0.8);
+                    const textSize = p.width < 400 ? 24 : 32;
+                    p.push();
+                    p.textSize(textSize);
+                    p.fill(255, 215, 0, alpha);
+                    p.stroke(0, alpha);
+                    p.strokeWeight(2);
+                    p.translate(p.width / 2, p.height / 2);
+                    p.scale(scale);
+                    p.text("¡Encestaste!", 0, 0);
+                    p.pop();
+                } else {
+                    scoreAnimation.current.show = false;
+                }
             }
         };
 
@@ -158,7 +181,7 @@ const Gameplay = ({
         const handleMessage = (event) => {
             const data = JSON.parse(event.data);
             
-            if (['update', 'newRound', 'scoreUpdate', 'start', 'joined'].includes(data.type)) {
+            if (['update', 'newRound', 'scoreUpdate', 'start', 'joined', 'confetti'].includes(data.type)) {
                 if (data.ball) {
                     ballRef.current = { ...ballRef.current, ...data.ball };
                     if (!ballRef.current.r) ballRef.current.r = 30;
@@ -172,6 +195,30 @@ const Gameplay = ({
                 if (data.round !== undefined) roundRef.current = data.round;
                 if (data.players) playersRef.current = data.players;
                 if (data.playerIndex !== undefined) playerIndexRef.current = data.playerIndex;
+
+                // Reiniciar animación en nueva ronda
+                if (data.type === 'newRound') {
+                    scoreAnimation.current = { show: false, startTime: 0 };
+                }
+
+                // CORREGIDO: Mostrar texto solo para el jugador que encestó
+                if (data.type === 'scoreUpdate' && data.scoringPlayer === playerIndexRef.current) {
+                    scoreAnimation.current = { 
+                        show: true, 
+                        startTime: p5Instance.current ? p5Instance.current.millis() : Date.now() 
+                    };
+                }
+
+                // CORREGIDO: Confeti para ambos jugadores cuando alguien encesta
+                if (data.type === 'confetti' && window.confetti) {
+                    const originX = data.scoringPlayer === 0 ? 0 : 1;
+                    window.confetti({
+                        particleCount: 100,
+                        spread: 70,
+                        origin: { x: originX, y: 0.6 },
+                        colors: ['#FFD700', '#FF4500', '#00FF00'],
+                    });
+                }
                 
                 setForceUpdate((prev) => prev + 1);
             }
@@ -195,18 +242,14 @@ const Gameplay = ({
 
     return (
         <div className={`gameplay ${gameStarted ? 'in-game' : 'waiting'}`}>
-
             <div className="game-container">
                 <div ref={sketchRef}></div>
-
                 <div className="score-container">
                     <div className="score-player player1-score">{scoresRef.current[0]}</div>
                     <div className="score-player player2-score">{scoresRef.current[1]}</div>
                 </div>
-
                 <div className="turn">Turno: {playersRef.current[turnRef.current] || 'Esperando...'}</div>
                 <div className="round">Ronda {roundRef.current}/3</div>
-
                 {playersRef.current[0] && (
                     <React.Fragment>
                         <div className="player-icon player1">
@@ -215,7 +258,6 @@ const Gameplay = ({
                         <div className="player-name player1-name">{playersRef.current[0]}</div>
                     </React.Fragment>
                 )}
-
                 {playersRef.current[1] && (
                     <React.Fragment>
                         <div className="player-icon player2">
@@ -224,7 +266,6 @@ const Gameplay = ({
                         <div className="player-name player2-name">{playersRef.current[1]}</div>
                     </React.Fragment>
                 )}
-
                 {gameStarted && (
                     <React.Fragment>
                         <div className={`timer player1-timer ${turnRef.current === 0 ? 'active' : ''}`}>
@@ -235,7 +276,6 @@ const Gameplay = ({
                         </div>
                     </React.Fragment>
                 )}
-
                 {!gameStarted && <div className="waiting-message">Esperando al segundo jugador...</div>}
             </div>
         </div>
