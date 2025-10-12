@@ -1,335 +1,213 @@
 const { useState, useEffect, useRef } = React;
 
-const Gameplay = ({
-    name,
-    wsRef,
-    gameStarted,
-    playerIndexRef,
-    turnRef,
-    ballRef,
-    hoopXRef,
-    scoresRef,
-    roundRef,
-    playersRef,
-    playerIconsRef,
-    timerRef,
-    attemptsRef,
-    currentRoom,
-}) => {
-    const [forceUpdate, setForceUpdate] = useState(0);
-    const sketchRef = useRef(null);
-    const p5Instance = useRef(null);
-    const isMounted = useRef(false);
-    const scoreAnimation = useRef({ show: false, startTime: 0 });
-    const refreshRateRef = useRef(60);
-    const deviceInfoSentRef = useRef(false);
+const App = () => {
+  console.log("Componente de aplicación renderizado");
 
-    const detectRefreshRate = async () => {
-        return new Promise((resolve) => {
-            let lastTime = performance.now();
-            let frameCount = 0;
-            let refreshRate = 60;
+  const [screen, setScreen] = useState('home');
+  const [chatMessages, setChatMessages] = useState([]);
+  const nameRef = useRef('Jugador1');
+  const [room, setRoom] = useState(null);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [winner, setWinner] = useState(null);
+  const playersRef = useRef([]);
+  const scoresRef = useRef([0, 0]);
+  const roundRef = useRef(1);
+  const turnRef = useRef(0);
+  const countdownRef = useRef(0);
+  const rankingsRef = useRef([]);
+  const roomStatusRef = useRef({ room1: { players: 0 }, room2: { players: 0 } });
+  const playerIndexRef = useRef(null);
+  const wsRef = useRef(null);
+  const lastBallStateRef = useRef(null);
+  const selectedIconRef = useRef('img/iconos/memes/meme1.png');
+  const playerIconsRef = useRef(['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png']);
+  const isPlayingEndSound = useRef(false); // Bandera para sonidos win/lose
 
-            const checkFrame = (currentTime) => {
-                frameCount++;
-                
-                if (frameCount === 60) {
-                    const elapsed = currentTime - lastTime;
-                    refreshRate = Math.round((60000 / elapsed) * 10) / 10;
-                    
-                    if (refreshRate >= 110) refreshRate = 120;
-                    else if (refreshRate >= 85) refreshRate = 90;
-                    else refreshRate = 60;
-                    
-                    console.log('Refresh rate: ' + refreshRate + 'hz');
-                    resolve(refreshRate);
-                    return;
-                }
-                
-                requestAnimationFrame(checkFrame);
-            };
-            
-            requestAnimationFrame(checkFrame);
-        });
+  const ballRef = useRef(null);
+  const hoopXRef = useRef(null);
+  const timerRef = useRef(null);
+  const attemptsRef = useRef(null);
+
+  useEffect(() => {
+    SoundManager.init();
+
+    wsRef.current = window.connectWebSocket((data) => {
+      if (data.type === 'chat') {
+        setChatMessages((prev) => [
+          ...prev,
+          { username: data.username, message: data.message, timestamp: data.timestamp }
+        ]);
+        SoundManager.playSound('chatNotification');
+        return;
+      }
+
+      if (data.type === 'rooms') {
+        roomStatusRef.current = data.rooms;
+      }
+
+      if (data.type === 'joined') {
+        setRoom(data.room);
+        playersRef.current = data.players;
+        playerIndexRef.current = data.playerIndex;
+        playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
+        setScreen('gameplay');
+      }
+
+      if (data.type === 'start') {
+        setGameStarted(true);
+        playersRef.current = data.players;
+        scoresRef.current = data.scores;
+        roundRef.current = data.round;
+        turnRef.current = data.turn;
+        playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
+        SoundManager.playBackground();
+        SoundManager.stopWheels();
+      }
+
+      if (data.type === 'update') {
+        scoresRef.current = data.scores;
+        roundRef.current = data.round;
+        playersRef.current = data.players;
+        turnRef.current = data.turn;
+        ballRef.current = data.ball;
+        hoopXRef.current = data.hoopX;
+        timerRef.current = data.timer;
+        attemptsRef.current = data.attempts;
+        playerIconsRef.current = data.playerIcons || playerIconsRef.current;
+        lastBallStateRef.current = { ...data.ball, scores: [...data.scores] };
+      }
+
+      if (data.type === 'bounce') {
+        SoundManager.playSound('bounce');
+      }
+
+      if (data.type === 'hoopHit') {
+        SoundManager.playSound('hoopHit');
+      }
+
+      if (data.type === 'newRound') {
+        roundRef.current = data.round;
+        scoresRef.current = data.scores;
+        playersRef.current = data.players;
+        turnRef.current = data.turn;
+        playerIconsRef.current = data.playerIcons || playerIconsRef.current;
+        if (data.round === 2 || data.round === 3) {
+          SoundManager.playWheels();
+        } else {
+          SoundManager.stopWheels();
+        }
+      }
+
+      if (data.type === 'scoreUpdate') {
+        scoresRef.current = data.scores;
+        playerIconsRef.current = data.playerIcons || playerIconsRef.current;
+        SoundManager.playSound('score');
+        SoundManager.playSound('scoreAdd');
+      }
+
+      if (data.type === 'end') {
+        setWinner(data.winner);
+        setGameStarted(false);
+        setChatMessages([]);
+        SoundManager.stopWheels();
+        SoundManager.stopBackground();
+        if (data.winner === nameRef.current) {
+          isPlayingEndSound.current = true;
+          SoundManager.playSound('win');
+        } else if (data.winner !== 'tie' && data.winner !== 'Desconectado') {
+          isPlayingEndSound.current = true;
+          SoundManager.playSound('lose');
+        }
+        setScreen('result');
+      }
+
+      if (data.type === 'rankings') {
+        rankingsRef.current = data.rankings;
+      }
+
+      if (data.type === 'full') {
+        alert("La sala está llena. Por favor, elige otra sala.");
+        setScreen('rooms');
+        setChatMessages([]);
+      }
+    });
+
+    // Escuchar cuando win o lose terminan para resetear la bandera
+    const handleEndSoundFinished = () => {
+      isPlayingEndSound.current = false;
     };
 
-    const sendDeviceInfo = (playerIndex, refreshRate) => {
-        if (wsRef.current && wsRef.current.readyState === 1 && !deviceInfoSentRef.current) {
-            wsRef.current.send(JSON.stringify({
-                type: 'deviceInfo',
-                room: currentRoom || 'room1',
-                playerIndex: playerIndex,
-                refreshRate: refreshRate
-            }));
-            deviceInfoSentRef.current = true;
-        }
+    window.addEventListener('endSoundFinished', handleEndSoundFinished);
+
+    return () => {
+      SoundManager.cleanup();
+      window.closeWebSocket();
+      window.removeEventListener('endSoundFinished', handleEndSoundFinished);
     };
+  }, []);
 
-    const setupSketch = (p) => {
-        let ballImg, hoopBaseImg, hoopRingImg;
-        let dragging = false;
-        let dragStartX, dragStartY;
-        let ballScale = 1;
-        let targetFrameRate = refreshRateRef.current;
+  useEffect(() => {
+    // Detener sonidos en pantallas que no sean gameplay, pero no si win/lose están sonando
+    if (screen !== 'gameplay' && !isPlayingEndSound.current) {
+      SoundManager.stopAll();
+    }
+  }, [screen]);
 
-        p.preload = () => {
-            ballImg = p.loadImage('img/balon/ball.png');
-            hoopBaseImg = p.loadImage('img/arco/hoop_base.png');
-            hoopRingImg = p.loadImage('img/arco/hoop_ring.png');
-            console.log("Assets cargados");
-        };
+  const sendChatMessage = (message) => {
+    if (message.trim()) {
+      window.sendMessage({
+        type: 'chat',
+        room: room || 'room1',
+        username: nameRef.current,
+        message: message.trim()
+      });
+    }
+  };
 
-        p.setup = () => {
-            p.createCanvas(600, 490);
-            p.frameRate(targetFrameRate);
-            p.textAlign(p.CENTER, p.CENTER);
-            p.textStyle(p.BOLD);
-        };
+  const handleSetScreen = (newScreen) => {
+    if (['home', 'rooms', 'result'].includes(newScreen)) {
+      setChatMessages([]);
+    }
+    // Resetear la bandera al cambiar de pantalla manualmente
+    if (newScreen !== 'result') {
+      isPlayingEndSound.current = false;
+    }
+    setScreen(newScreen);
+  };
 
-        p.draw = () => {
-            p.clear();
-            
-            if (!ballRef.current) {
-                ballRef.current = { x: 300, y: 405, r: 30, vx: 0, vy: 0, thrown: false, rotation: 0 };
-            }
-            if (!ballRef.current.r) ballRef.current.r = 30;
-            if (!hoopXRef.current) hoopXRef.current = 300;
-
-            const hoopBaseWidth = 240;
-            const hoopBaseHeight = hoopBaseWidth * (3464 / 2598);
-            const hoopRingWidth = 75;
-            const hoopRingHeight = hoopRingWidth * (499 / 788);
-
-            if (ballImg && hoopBaseImg && hoopRingImg) {
-                p.image(hoopBaseImg, hoopXRef.current - hoopBaseWidth / 1.98, 40, hoopBaseWidth, hoopBaseHeight);
-                
-                ballScale = p.map(ballRef.current.y, 405, 113, 1, 0.8);
-                ballScale = p.constrain(ballScale, 0.8, 1);
-
-                const drawRotatedBall = () => {
-                    p.push();
-                    p.translate(ballRef.current.x, ballRef.current.y);
-                    p.rotate(ballRef.current.rotation || 0);
-                    p.image(
-                        ballImg,
-                        -ballRef.current.r * ballScale,
-                        -ballRef.current.r * ballScale,
-                        ballRef.current.r * 2 * ballScale,
-                        ballRef.current.r * 2 * ballScale
-                    );
-                    p.pop();
-                };
-
-                if (ballRef.current.vy > 0) {
-                    drawRotatedBall();
-                    p.image(hoopRingImg, hoopXRef.current - hoopRingWidth / 2.2, 113, hoopRingWidth, hoopRingHeight);
-                } else {
-                    p.image(hoopRingImg, hoopXRef.current - hoopRingWidth / 2.2, 113, hoopRingWidth, hoopRingHeight);
-                    drawRotatedBall();
-                }
-            } else {
-                p.fill(255, 165, 0);
-                p.ellipse(ballRef.current.x, ballRef.current.y, ballRef.current.r * 2 * ballScale);
-                p.fill(255, 0, 0);
-                p.rect(hoopXRef.current - 37.5, 113, 75, 20);
-                p.fill(255);
-                p.text("Debug mode", 10, 20);
-            }
-
-            if (scoreAnimation.current.show) {
-                const elapsed = p.millis() - scoreAnimation.current.startTime;
-                if (elapsed < 2000) {
-                    const alpha = p.map(elapsed, 0, 2000, 255, 0);
-                    const scale = p.map(elapsed, 0, 1000, 1, 1.2) * p.map(elapsed, 1000, 2000, 1.2, 0.8);
-                    const textSize = p.width < 400 ? 24 : 32;
-                    p.push();
-                    p.textSize(textSize);
-                    p.fill(255, 215, 0, alpha);
-                    p.stroke(0, alpha);
-                    p.strokeWeight(2);
-                    p.translate(p.width / 2, p.height / 2);
-                    p.scale(scale);
-                    p.text("Encestaste!", 0, 0);
-                    p.pop();
-                } else {
-                    scoreAnimation.current.show = false;
-                }
-            }
-        };
-
-        p.mousePressed = () => {
-            if (
-                gameStarted &&
-                turnRef.current === playerIndexRef.current &&
-                !ballRef.current.thrown &&
-                attemptsRef.current &&
-                attemptsRef.current[playerIndexRef.current] < 5
-            ) {
-                const ballCenterX = ballRef.current.x;
-                const ballCenterY = ballRef.current.y;
-                const ballRadius = ballRef.current.r * ballScale;
-                
-                const distance = Math.sqrt(
-                    Math.pow(p.mouseX - ballCenterX, 2) + 
-                    Math.pow(p.mouseY - ballCenterY, 2)
-                );
-                
-                if (distance <= ballRadius) {
-                    dragging = true;
-                    dragStartX = p.mouseX;
-                    dragStartY = p.mouseY;
-                }
-            }
-        };
-
-        p.mouseReleased = () => {
-            if (dragging) {
-                const dx = p.mouseX - dragStartX;
-                const dy = p.mouseY - dragStartY;
-                const power = Math.min(Math.max(Math.sqrt(dx * dx + dy * dy) / 10, 0.2), 15.5);
-                const angle = Math.atan2(dy, dx);
-                const vx = power * Math.cos(angle);
-                const vy = power * Math.sin(angle);
-
-                if (wsRef.current && wsRef.current.readyState === 1) {
-                    wsRef.current.send(
-                        JSON.stringify({
-                            type: 'shot',
-                            room: currentRoom || 'room1',
-                            playerIndex: playerIndexRef.current,
-                            ballVX: vx,
-                            ballVY: vy,
-                        })
-                    );
-                }
-
-                dragging = false;
-            }
-        };
-    };
-
-    useEffect(() => {
-        const initGame = async () => {
-            const detectedRate = await detectRefreshRate();
-            refreshRateRef.current = detectedRate;
-
-            if (!isMounted.current && sketchRef.current && gameStarted) {
-                p5Instance.current = new window.p5(setupSketch, sketchRef.current);
-                isMounted.current = true;
-
-                setTimeout(() => {
-                    sendDeviceInfo(playerIndexRef.current, detectedRate);
-                }, 500);
-            }
-        };
-
-        if (gameStarted) {
-            initGame();
-        }
-
-        const handleMessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                
-                if (['update', 'newRound', 'scoreUpdate', 'start', 'joined', 'confetti'].includes(data.type)) {
-                    if (data.ball) {
-                        ballRef.current = Object.assign({}, ballRef.current, data.ball);
-                        if (!ballRef.current.r) ballRef.current.r = 30;
-                    }
-                    if (data.hoopX !== undefined) hoopXRef.current = data.hoopX;
-                    if (data.timer !== undefined) timerRef.current = data.timer;
-                    if (data.attempts) attemptsRef.current = data.attempts;
-                    if (data.playerIcons) playerIconsRef.current = data.playerIcons;
-                    if (data.scores) scoresRef.current = data.scores;
-                    if (data.turn !== undefined) turnRef.current = data.turn;
-                    if (data.round !== undefined) roundRef.current = data.round;
-                    if (data.players) playersRef.current = data.players;
-                    if (data.playerIndex !== undefined) playerIndexRef.current = data.playerIndex;
-
-                    if (data.type === 'newRound') {
-                        scoreAnimation.current = { show: false, startTime: 0 };
-                    }
-
-                    if (data.type === 'scoreUpdate' && data.scoringPlayer === playerIndexRef.current) {
-                        scoreAnimation.current = { 
-                            show: true, 
-                            startTime: p5Instance.current ? p5Instance.current.millis() : Date.now() 
-                        };
-                    }
-
-                    if (data.type === 'confetti' && window.confetti) {
-                        const originX = data.scoringPlayer === 0 ? 0 : 1;
-                        window.confetti({
-                            particleCount: 100,
-                            spread: 70,
-                            origin: { x: originX, y: 0.6 },
-                            colors: ['#FFD700', '#FF4500', '#00FF00'],
-                        });
-                    }
-                    
-                    setForceUpdate((prev) => prev + 1);
-                }
-            } catch (e) {
-                console.error('WS Error:', e);
-            }
-        };
-
-        if (wsRef.current) {
-            wsRef.current.addEventListener('message', handleMessage);
-        }
-
-        return () => {
-            if (p5Instance.current) {
-                p5Instance.current.remove();
-                p5Instance.current = null;
-                isMounted.current = false;
-            }
-            if (wsRef.current) {
-                wsRef.current.removeEventListener('message', handleMessage);
-            }
-        };
-    }, [gameStarted]);
-
-    // Validación segura de valores
-    const score0 = scoresRef.current && scoresRef.current[0] ? scoresRef.current[0] : 0;
-    const score1 = scoresRef.current && scoresRef.current[1] ? scoresRef.current[1] : 0;
-    const currentPlayer = playersRef.current && playersRef.current[turnRef.current] ? playersRef.current[turnRef.current] : 'Esperando...';
-    const player1 = playersRef.current && playersRef.current[0] ? playersRef.current[0] : '';
-    const player2 = playersRef.current && playersRef.current[1] ? playersRef.current[1] : '';
-    const icon1 = playerIconsRef.current && playerIconsRef.current[0] ? playerIconsRef.current[0] : 'img/iconos/memes/meme1.png';
-    const icon2 = playerIconsRef.current && playerIconsRef.current[1] ? playerIconsRef.current[1] : 'img/iconos/memes/meme1.png';
-    const timer = timerRef.current || 0;
-
-    return React.createElement('div', { className: 'gameplay ' + (gameStarted ? 'in-game' : 'waiting') },
-        React.createElement('div', { className: 'game-container' },
-            React.createElement('div', { ref: sketchRef }),
-            React.createElement('div', { className: 'score-container' },
-                React.createElement('div', { className: 'score-player player1-score' }, score0),
-                React.createElement('div', { className: 'score-player player2-score' }, score1)
-            ),
-            React.createElement('div', { className: 'turn' }, 'Turno: ' + currentPlayer),
-            React.createElement('div', { className: 'round' }, 'Ronda ' + roundRef.current + '/3'),
-            player1 ? React.createElement('div', null,
-                React.createElement('div', { className: 'player-icon player1' },
-                    React.createElement('img', { src: icon1, alt: 'Player 1' })
-                ),
-                React.createElement('div', { className: 'player-name player1-name' }, player1)
-            ) : null,
-            player2 ? React.createElement('div', null,
-                React.createElement('div', { className: 'player-icon player2' },
-                    React.createElement('img', { src: icon2, alt: 'Player 2' })
-                ),
-                React.createElement('div', { className: 'player-name player2-name' }, player2)
-            ) : null,
-            gameStarted ? React.createElement('div', null,
-                React.createElement('div', { className: 'timer player1-timer ' + (turnRef.current === 0 ? 'active' : '') },
-                    React.createElement('div', { className: 'timer-bar', style: { width: (timer * 12.5) + '%' } })
-                ),
-                React.createElement('div', { className: 'timer player2-timer ' + (turnRef.current === 1 ? 'active' : '') },
-                    React.createElement('div', { className: 'timer-bar', style: { width: (timer * 12.5) + '%' } })
-                )
-            ) : null,
-            !gameStarted ? React.createElement('div', { className: 'waiting-message' }, 'Esperando al segundo jugador...') : null
-        )
-    );
+  return (
+    <div id="root">
+      {screen === 'home' && <Home setScreen={handleSetScreen} nameRef={nameRef} />}
+      {screen === 'rooms' && <Rooms setScreen={handleSetScreen} wsRef={wsRef} roomStatusRef={roomStatusRef} nameRef={nameRef} />}
+      {screen === 'gameplay' && (
+        <React.Fragment>
+          <Gameplay
+            name={nameRef.current}
+            wsRef={wsRef}
+            gameStarted={gameStarted}
+            playerIndexRef={playerIndexRef}
+            turnRef={turnRef}
+            ballRef={ballRef}
+            hoopXRef={hoopXRef}
+            scoresRef={scoresRef}
+            roundRef={roundRef}
+            playersRef={playersRef}
+            playerIconsRef={playerIconsRef}
+            timerRef={timerRef}
+            attemptsRef={attemptsRef}
+            currentRoom={room}
+          />
+          <Chat
+            chatMessages={chatMessages}
+            sendChatMessage={sendChatMessage}
+            name={nameRef.current}
+            currentRoom={room}
+          />
+        </React.Fragment>
+      )}
+      {screen === 'rankings' && <Rankings setScreen={handleSetScreen} rankingsRef={rankingsRef} />}
+      {screen === 'credits' && <Credits setScreen={handleSetScreen} />}
+      {screen === 'result' && <Result winner={winner} nameRef={nameRef} setScreen={handleSetScreen} />}
+    </div>
+  );
 };
