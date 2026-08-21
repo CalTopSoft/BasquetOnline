@@ -56,19 +56,19 @@ const Credits = ({ setScreen }) => {
         <div className="credit-card">
           <h2>👾 Programación</h2>
           <p>
-            <strong>Byron Pro</strong>
+            <strong>Byron / Jostin</strong>
           </p>
         </div>
         <div className="credit-card">
           <h2>🎨 Arte Digital</h2>
           <p>
-            <strong>Byron Pro</strong>
+            <strong>Leonardo</strong>
           </p>
         </div>
         <div className="credit-card">
           <h2>🔊 Diseño de Audio</h2>
           <p>
-            <strong>Ney Nuv</strong>
+            <strong>Ney / Joel</strong>
           </p>
         </div>
         <div className="credit-card">
