@@ -19,8 +19,8 @@ const App = () => {
   const playerIndexRef = useRef(null);
   const wsRef = useRef(null);
   const lastBallStateRef = useRef(null);
-  const selectedIconRef = useRef('img/iconos/memes/meme1.png');
-  const playerIconsRef = useRef(['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png']);
+  const selectedIconRef = useRef('img/iconos/gatos/cat1.png');
+  const playerIconsRef = useRef(['img/iconos/gatos/cat1.png', 'img/iconos/gatos/cat1.png']);
   const isPlayingEndSound = useRef(false); // Bandera para sonidos win/lose
 
   const ballRef = useRef(null);
@@ -49,7 +49,7 @@ const App = () => {
         setRoom(data.room);
         playersRef.current = data.players;
         playerIndexRef.current = data.playerIndex;
-        playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
+        playerIconsRef.current = data.playerIcons || ['img/iconos/gatos/cat1.png', 'img/iconos/gatos/cat1.png'];
         setScreen('gameplay');
       }
 
@@ -59,7 +59,7 @@ const App = () => {
         scoresRef.current = data.scores;
         roundRef.current = data.round;
         turnRef.current = data.turn;
-        playerIconsRef.current = data.playerIcons || ['img/iconos/memes/meme1.png', 'img/iconos/memes/meme1.png'];
+        playerIconsRef.current = data.playerIcons || ['img/iconos/gatos/cat1.png', 'img/iconos/gatos/cat1.png'];
         SoundManager.playBackground();
         SoundManager.stopWheels();
       }

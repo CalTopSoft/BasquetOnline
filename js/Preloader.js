@@ -5,15 +5,7 @@ const Preloader = () => {
         'img/arco/hoop_base.png',
         'img/arco/hoop_ring.png',
         'img/fondo/background.png',
-        // Íconos de memes
-        'img/iconos/memes/meme1.png',
-        'img/iconos/memes/meme2.png',
-        'img/iconos/memes/meme3.png',
-        'img/iconos/memes/meme4.png',
-        'img/iconos/memes/meme5.png',
-        'img/iconos/memes/meme6.png',
-        'img/iconos/memes/meme7.png',
-        'img/iconos/memes/meme8.png',
+        
         // Íconos de gatos
         'img/iconos/gatos/cat1.png',
         'img/iconos/gatos/cat2.png',
@@ -29,21 +21,7 @@ const Preloader = () => {
         'img/iconos/gatos/cat12.png',
         'img/iconos/gatos/cat13.png',
         'img/iconos/gatos/cat14.png',
-        // Íconos de caricaturas
-        'img/iconos/caricaturas/cartoon1.png',
-        'img/iconos/caricaturas/cartoon2.png',
-        'img/iconos/caricaturas/cartoon3.png',
-        'img/iconos/caricaturas/cartoon4.png',
-        'img/iconos/caricaturas/cartoon5.png',
-        'img/iconos/caricaturas/cartoon6.png',
-        'img/iconos/caricaturas/cartoon7.png',
-        'img/iconos/caricaturas/cartoon8.png',
-        'img/iconos/caricaturas/cartoon9.png',
-        'img/iconos/caricaturas/cartoon10.png',
-        'img/iconos/caricaturas/cartoon11.png',
-        'img/iconos/caricaturas/cartoon12.png',
-        'img/iconos/caricaturas/cartoon13.png',
-        'img/iconos/caricaturas/cartoon14.png'
+        
     ];
 
     // Contamos cuántas imágenes ya se cargaron
